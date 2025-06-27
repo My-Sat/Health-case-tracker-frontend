@@ -1,0 +1,170 @@
+// ignore_for_file: use_build_context_synchronously
+
+import 'dart:convert';
+import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
+import 'package:http/http.dart' as http;
+import '../providers/auth_provider.dart';
+
+class CreateCaseScreen extends StatefulWidget {
+  const CreateCaseScreen({super.key});
+
+  @override
+  // ignore: library_private_types_in_public_api
+  _CreateCaseScreenState createState() => _CreateCaseScreenState();
+}
+
+class _CreateCaseScreenState extends State<CreateCaseScreen> {
+  final caseTypeCtrl = TextEditingController();
+  final nameCtrl = TextEditingController();
+  final ageCtrl = TextEditingController();
+  final phoneCtrl = TextEditingController();
+
+  String gender = 'male';
+  String patientStatus = 'Ongoing treatment';
+  bool isSubmitting = false;
+
+  Future<void> submitCase() async {
+    setState(() => isSubmitting = true);
+    final auth = Provider.of<AuthProvider>(context, listen: false);
+    final token = auth.user!.token;
+
+    final body = {
+      'caseType': caseTypeCtrl.text,
+      'patient': {
+        'name': nameCtrl.text,
+        'age': int.tryParse(ageCtrl.text) ?? 0,
+        'gender': gender,
+        'phone': phoneCtrl.text,
+        'status': patientStatus,
+      }
+    };
+
+    final response = await http.post(
+      Uri.parse('http://172.20.10.3:5000/api/cases'),
+      headers: {
+        'Authorization': 'Bearer $token',
+        'Content-Type': 'application/json',
+      },
+      body: jsonEncode(body),
+    );
+
+    setState(() => isSubmitting = false);
+
+    if (response.statusCode == 201) {
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Case reported')));
+      Navigator.pop(context);
+    } else {
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Failed to report case')));
+    }
+  }
+
+  Widget buildInput(String label, IconData icon, TextEditingController controller,
+      {TextInputType type = TextInputType.text}) {
+    return TextField(
+      controller: controller,
+      keyboardType: type,
+      decoration: InputDecoration(
+        labelText: label,
+        prefixIcon: Icon(icon),
+        border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
+        filled: true,
+        fillColor: Colors.grey[50],
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(),
+      body: Container(
+        decoration: BoxDecoration(
+          gradient: LinearGradient(
+            colors: [Colors.teal.shade800, Colors.teal.shade300],
+            begin: Alignment.topCenter,
+            end: Alignment.bottomCenter,
+          ),
+        ),
+        child: Center(
+          child: SingleChildScrollView(
+            padding: EdgeInsets.all(20),
+            child: Container(
+              padding: EdgeInsets.all(24),
+              decoration: BoxDecoration(
+                color: Colors.white.withAlpha((0.95 * 255).toInt()),
+                borderRadius: BorderRadius.circular(16),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black26,
+                    blurRadius: 10,
+                    offset: Offset(0, 4),
+                  ),
+                ],
+              ),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(
+                    'Report New Case',
+                    style: TextStyle(
+                      fontSize: 20,
+                      fontWeight: FontWeight.bold,
+                      color: Colors.teal.shade800,
+                    ),
+                  ),
+                  SizedBox(height: 20),
+                  buildInput('Case Type', Icons.local_hospital, caseTypeCtrl),
+                  SizedBox(height: 16),
+                  buildInput('Patient Name', Icons.person, nameCtrl),
+                  SizedBox(height: 16),
+                  buildInput('Patient Age', Icons.numbers, ageCtrl, type: TextInputType.number),
+                  SizedBox(height: 16),
+                  buildInput('Patient Phone', Icons.phone, phoneCtrl, type: TextInputType.phone),
+                  SizedBox(height: 16),
+                  DropdownButtonFormField<String>(
+                    value: gender,
+                    items: ['male', 'female', 'other']
+                        .map((g) => DropdownMenuItem(value: g, child: Text(g)))
+                        .toList(),
+                    onChanged: (val) => setState(() => gender = val!),
+                    decoration: InputDecoration(
+                      labelText: 'Gender',
+                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
+                      filled: true,
+                      fillColor: Colors.grey[50],
+                    ),
+                  ),
+                  SizedBox(height: 16),
+                  DropdownButtonFormField<String>(
+                    value: patientStatus,
+                    items: ['Ongoing treatment', 'Recovered', 'Deceased']
+                        .map((s) => DropdownMenuItem(value: s, child: Text(s)))
+                        .toList(),
+                    onChanged: (val) => setState(() => patientStatus = val!),
+                    decoration: InputDecoration(
+                      labelText: 'Patient Status',
+                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
+                      filled: true,
+                      fillColor: Colors.grey[50],
+                    ),
+                  ),
+                  SizedBox(height: 24),
+                  ElevatedButton(
+                    onPressed: isSubmitting ? null : submitCase,
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.teal,
+                      foregroundColor: Colors.white,
+                      padding: EdgeInsets.symmetric(horizontal: 50, vertical: 14),
+                    ),
+                    child: Text(isSubmitting ? 'Submitting...' : 'Submit Case'),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
