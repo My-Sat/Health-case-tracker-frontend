@@ -54,7 +54,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
     }
 
     setState(() => isLoading = true);
-    final url = Uri.parse('http://172.20.10.3:5000/api/users/register');
+    final url = Uri.parse('https://health-case-tracker-backend.onrender.com/api/users/register');
 
     try {
       final response = await http.post(

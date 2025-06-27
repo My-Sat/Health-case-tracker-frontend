@@ -32,7 +32,7 @@ class _MyCasesScreenState extends State<MyCasesScreen> {
     final token = Provider.of<AuthProvider>(context, listen: false).user!.token;
 
     final response = await http.get(
-      Uri.parse('http://172.20.10.3:5000/api/cases/my-cases'),
+      Uri.parse('https://health-case-tracker-backend.onrender.com/api/cases/my-cases'),
       headers: {'Authorization': 'Bearer $token'},
     );
 
@@ -50,7 +50,7 @@ Future<void> updateStatus(String caseId, [String? status, String? patientStatus]
   final token = Provider.of<AuthProvider>(context, listen: false).user!.token;
 
   final response = await http.put(
-    Uri.parse('http://172.20.10.3:5000/api/cases/$caseId/status'),
+    Uri.parse('https://health-case-tracker-backend.onrender.com/api/cases/$caseId/status'),
     headers: {
       'Authorization': 'Bearer $token',
       'Content-Type': 'application/json',

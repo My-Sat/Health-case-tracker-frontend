@@ -35,7 +35,7 @@ class _HomeScreenState extends State<HomeScreen> {
     final token = auth.user!.token;
 
     final response = await http.get(
-      Uri.parse('http://172.20.10.3:5000/api/cases'),
+      Uri.parse('https://health-case-tracker-backend.onrender.com/api/cases'),
       headers: {'Authorization': 'Bearer $token'},
     );
 

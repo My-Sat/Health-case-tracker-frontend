@@ -41,7 +41,7 @@ class _CreateCaseScreenState extends State<CreateCaseScreen> {
     };
 
     final response = await http.post(
-      Uri.parse('http://172.20.10.3:5000/api/cases'),
+      Uri.parse('https://health-case-tracker-backend.onrender.com/api/cases'),
       headers: {
         'Authorization': 'Bearer $token',
         'Content-Type': 'application/json',

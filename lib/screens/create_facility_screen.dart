@@ -27,7 +27,7 @@ class _CreateFacilityScreenState extends State<CreateFacilityScreen> {
     final token = Provider.of<AuthProvider>(context, listen: false).user!.token;
 
     final response = await http.post(
-      Uri.parse('http://172.20.10.3:5000/api/facilities'),
+      Uri.parse('https://health-case-tracker-backend.onrender.com/api/facilities'),
       headers: {
         'Authorization': 'Bearer $token',
         'Content-Type': 'application/json',
