@@ -46,15 +46,6 @@ class LoginScreen extends StatelessWidget {
                 mainAxisSize: MainAxisSize.min,
                 children: [
                   Icon(Icons.local_hospital, size: 64, color: Colors.teal),
-                  SizedBox(height: 16),
-                  Text(
-                    'Health Case Tracker',
-                    style: TextStyle(
-                      fontSize: 22,
-                      fontWeight: FontWeight.bold,
-                      color: Colors.teal.shade800,
-                    ),
-                  ),
                   SizedBox(height: 24),
                   TextField(
                     controller: usernameCtrl,

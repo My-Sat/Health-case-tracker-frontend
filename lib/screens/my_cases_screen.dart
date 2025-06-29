@@ -135,53 +135,104 @@ Widget caseCard(Map<String, dynamic> data) {
     );
   }
 
+  Widget caseTypeBox(String value) {
+  return Container(
+    margin: EdgeInsets.only(bottom: 8),
+    padding: EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+    decoration: BoxDecoration(
+        color: Colors.grey[100],
+        borderRadius: BorderRadius.circular(10),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.grey.shade300,
+            offset: Offset(2, 2),
+            blurRadius: 4,
+          ),
+        ],
+
+    ),
+    child: Text(
+      'CASE TYPE: ${value.toUpperCase()}',
+      style: TextStyle(
+        fontSize: 16,
+        fontWeight: FontWeight.bold,
+        color: Colors.black87,
+      ),
+    ),
+  );
+}
+
+
   Widget statusActionButtons(String id) {
-    return Row(
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         ElevatedButton(
           onPressed: () => showConfirmationDialog(
-              context,
-              'Confirm this case?',
-              () => updateStatus(id, 'confirmed'),
-            ),
-
+            context,
+            'Confirm this case?',
+            () => updateStatus(data['_id'], 'confirmed'),
+          ),
+          style: ElevatedButton.styleFrom(
+            backgroundColor: Colors.red,
+            foregroundColor: Colors.white,
+            minimumSize: Size(double.infinity, 44),
+          ),
           child: Text('Confirm'),
         ),
-        SizedBox(width: 10),
+        SizedBox(height: 8),
         ElevatedButton(
           onPressed: () => showConfirmationDialog(
             context,
             'Rule out this case?',
-            () => updateStatus(id, 'rule-out'),
+            () => updateStatus(data['_id'], 'rule-out'),
+          ),
+          style: ElevatedButton.styleFrom(
+            backgroundColor: Colors.green,
+            foregroundColor: Colors.white,
+            minimumSize: Size(double.infinity, 44),
           ),
           child: Text('Rule Out'),
         ),
       ],
     );
+
   }
 
   Widget patientStatusButtons(String id) {
-    return Row(
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        OutlinedButton(
-        onPressed: () => showConfirmationDialog(
-          context,
-          'Confirm patient has recovered?',
-          () => updateStatus(id, null, 'Recovered'),
-        ),
+        ElevatedButton(
+          onPressed: () => showConfirmationDialog(
+            context,
+            'Confirm patient has recovered?',
+            () => updateStatus(data['_id'], null, 'Recovered'),
+          ),
+          style: ElevatedButton.styleFrom(
+            backgroundColor: Colors.green,
+            foregroundColor: Colors.white,
+            minimumSize: Size(double.infinity, 44),
+          ),
           child: Text('Mark Recovered'),
         ),
-        SizedBox(width: 10),
-        OutlinedButton(
-        onPressed: () => showConfirmationDialog(
-          context,
-          'Confirm patient is deceased?',
-          () => updateStatus(id, null, 'Deceased'),
-        ),
+        SizedBox(height: 8),
+        ElevatedButton(
+          onPressed: () => showConfirmationDialog(
+            context,
+            'Confirm patient is deceased?',
+            () => updateStatus(data['_id'], null, 'Deceased'),
+          ),
+          style: ElevatedButton.styleFrom(
+            backgroundColor: Colors.red,
+            foregroundColor: Colors.white,
+            minimumSize: Size(double.infinity, 44),
+          ),
           child: Text('Mark Deceased'),
         ),
       ],
     );
+
   }
 
   return Card(
@@ -193,7 +244,7 @@ Widget caseCard(Map<String, dynamic> data) {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          infoBox('Case Type', data['caseType']),
+          caseTypeBox(data['caseType']),
           infoBox('Case Status', caseStatus),
           if (caseStatus == 'suspected') statusActionButtons(data['_id']),
           SizedBox(height: 10),

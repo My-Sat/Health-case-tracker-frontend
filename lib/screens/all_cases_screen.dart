@@ -74,6 +74,34 @@ class _AllCasesScreenState extends State<AllCasesScreen> {
       );
     }
 
+      Widget caseTypeBox(String value) {
+  return Container(
+    margin: EdgeInsets.only(bottom: 8),
+    padding: EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+    decoration: BoxDecoration(
+        color: Colors.grey[100],
+        borderRadius: BorderRadius.circular(10),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.grey.shade300,
+            offset: Offset(2, 2),
+            blurRadius: 4,
+          ),
+        ],
+
+    ),
+    child: Text(
+      'CASE TYPE: ${value.toUpperCase()}',
+      style: TextStyle(
+        fontSize: 16,
+        fontWeight: FontWeight.bold,
+        color: Colors.black87,
+      ),
+    ),
+  );
+}
+
+
     return Card(
       margin: EdgeInsets.symmetric(vertical: 10, horizontal: 16),
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
@@ -83,7 +111,7 @@ class _AllCasesScreenState extends State<AllCasesScreen> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            infoBox('Case Type', data['caseType']),
+            caseTypeBox(data['caseType']),
             infoBox('Case Status', status),
             infoBox('Reported On', formattedTimeline),
             infoBox('Facility', data['healthFacility']['name']),
