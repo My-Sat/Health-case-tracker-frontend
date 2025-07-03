@@ -9,6 +9,7 @@ import 'create_case_screen.dart';
 import 'all_cases_screen.dart';
 import 'login_screen.dart';
 import 'package:intl/intl.dart'; // This import is required for DateFormat
+import '../widgets/case_detail_bottom.dart'; // Import your bottom sheet widget
 
 
 class MyCasesScreen extends StatefulWidget {
@@ -18,7 +19,7 @@ class MyCasesScreen extends StatefulWidget {
   _MyCasesScreenState createState() => _MyCasesScreenState();
 }
 
-class _MyCasesScreenState extends State<MyCasesScreen> {
+class _MyCasesScreenState extends State<MyCasesScreen> { 
   List<dynamic> myCases = [];
   bool isLoading = true;
 
@@ -101,166 +102,87 @@ Future<void> updateStatus(String caseId, [String? status, String? patientStatus]
 }
 
 
-Widget caseCard(Map<String, dynamic> data) {
+Widget caseSummaryCard(Map<String, dynamic> data) {
   final patient = data['patient'];
+  final caseType = data['caseType'].toString().toUpperCase();
   final caseStatus = data['status'];
-  final patientStatus = patient['status'];
+  final timeline = data['timeline'] ?? '';
+  final formattedTimeline = timeline.isNotEmpty
+      ? DateFormat.yMMMd().format(DateTime.parse(timeline))
+      : 'N/A';
   final location = data['healthFacility']['location'];
-  final String timeline = data['timeline'] ?? '';
-  final String formattedTimeline = timeline.isNotEmpty
-    ? DateFormat.yMMMMd().add_jm().format(DateTime.parse(timeline))
-    : 'N/A';
+  final String displayLocation = location['community'] ?? 'N/A';
 
+  Color statusColor = Colors.grey;
+  if (caseStatus == 'suspected') statusColor = Colors.orange;
+  if (caseStatus == 'confirmed') statusColor = Colors.red;
+  if (caseStatus == 'rule-out') statusColor = Colors.green;
 
-
-  Widget infoBox(String label, String value) {
-    return Container(
-      margin: EdgeInsets.symmetric(vertical: 4),
+  return GestureDetector(
+    onTap: () {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(25)),
+      ),
+      builder: (context) => CaseDetailBottomSheet(
+        caseData: data,
+        onUpdate: updateStatus,
+      ),
+    );
+  },
+    child: Container(
+      margin: EdgeInsets.symmetric(vertical: 6, horizontal: 16),
       padding: EdgeInsets.all(12),
       decoration: BoxDecoration(
-        color: Colors.grey[100],
-        borderRadius: BorderRadius.circular(10),
+        color: Colors.white,
+        border: Border.all(color: Colors.grey.shade300),
+        borderRadius: BorderRadius.circular(12),
         boxShadow: [
           BoxShadow(
-            color: Colors.grey.shade300,
+            color: Colors.grey.shade200,
+            blurRadius: 3,
             offset: Offset(2, 2),
-            blurRadius: 4,
           ),
         ],
       ),
-      child: Text(
-        '$label: $value',
-        style: TextStyle(fontSize: 14, fontWeight: FontWeight.w500),
-      ),
-    );
-  }
-
-  Widget caseTypeBox(String value) {
-  return Container(
-    margin: EdgeInsets.only(bottom: 8),
-    padding: EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-    decoration: BoxDecoration(
-        color: Colors.grey[100],
-        borderRadius: BorderRadius.circular(10),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.grey.shade300,
-            offset: Offset(2, 2),
-            blurRadius: 4,
-          ),
-        ],
-
-    ),
-    child: Text(
-      'CASE TYPE: ${value.toUpperCase()}',
-      style: TextStyle(
-        fontSize: 16,
-        fontWeight: FontWeight.bold,
-        color: Colors.black87,
-      ),
-    ),
-  );
-}
-
-
-  Widget statusActionButtons(String id) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        ElevatedButton(
-          onPressed: () => showConfirmationDialog(
-            context,
-            'Confirm this case?',
-            () => updateStatus(data['_id'], 'confirmed'),
-          ),
-          style: ElevatedButton.styleFrom(
-            backgroundColor: Colors.red,
-            foregroundColor: Colors.white,
-            minimumSize: Size(double.infinity, 44),
-          ),
-          child: Text('Confirm'),
-        ),
-        SizedBox(height: 8),
-        ElevatedButton(
-          onPressed: () => showConfirmationDialog(
-            context,
-            'Rule out this case?',
-            () => updateStatus(data['_id'], 'rule-out'),
-          ),
-          style: ElevatedButton.styleFrom(
-            backgroundColor: Colors.green,
-            foregroundColor: Colors.white,
-            minimumSize: Size(double.infinity, 44),
-          ),
-          child: Text('Rule Out'),
-        ),
-      ],
-    );
-
-  }
-
-  Widget patientStatusButtons(String id) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        ElevatedButton(
-          onPressed: () => showConfirmationDialog(
-            context,
-            'Confirm patient has recovered?',
-            () => updateStatus(data['_id'], null, 'Recovered'),
-          ),
-          style: ElevatedButton.styleFrom(
-            backgroundColor: Colors.green,
-            foregroundColor: Colors.white,
-            minimumSize: Size(double.infinity, 44),
-          ),
-          child: Text('Mark Recovered'),
-        ),
-        SizedBox(height: 8),
-        ElevatedButton(
-          onPressed: () => showConfirmationDialog(
-            context,
-            'Confirm patient is deceased?',
-            () => updateStatus(data['_id'], null, 'Deceased'),
-          ),
-          style: ElevatedButton.styleFrom(
-            backgroundColor: Colors.red,
-            foregroundColor: Colors.white,
-            minimumSize: Size(double.infinity, 44),
-          ),
-          child: Text('Mark Deceased'),
-        ),
-      ],
-    );
-
-  }
-
-  return Card(
-    margin: EdgeInsets.symmetric(vertical: 10, horizontal: 16),
-    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(35)),
-    elevation: 4,
-    child: Padding(
-      padding: const EdgeInsets.all(16),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          caseTypeBox(data['caseType']),
-          infoBox('Case Status', caseStatus),
-          if (caseStatus == 'suspected') statusActionButtons(data['_id']),
-          SizedBox(height: 10),
-          infoBox('Reported On', formattedTimeline),
-          infoBox('Facility', data['healthFacility']['name']),
-          infoBox('Region', location['region']),
-          infoBox('District', location['district']),
-          infoBox('Community', location['community']),
-          infoBox('Patient Name', patient['name']),
-          infoBox('Patient Status', patientStatus),
-          if (patientStatus == 'Ongoing treatment') patientStatusButtons(data['_id']),
-          SizedBox(height: 10),
-          infoBox('Patient Age', '${patient['age']} yrs'),
-          infoBox('Patient Gender', patient['gender']),
-          infoBox('Patient Phone', patient['phone']),
-          
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text(caseType,
+                  style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+              Text(caseStatus.toUpperCase(),
+                  style: TextStyle(
+                      fontSize: 14,
+                      fontWeight: FontWeight.w600,
+                      color: statusColor)),
+            ],
+          ),
+          SizedBox(height: 4),
+          Text.rich(TextSpan(
+              text: 'Reported: ',
+              style: TextStyle(fontWeight: FontWeight.w600, color: Colors.grey[700]),
+              children: [
+                TextSpan(
+                  text: '$formattedTimeline · $displayLocation',
+                  style: TextStyle(
+                      fontWeight: FontWeight.normal, color: Colors.black87),
+                )
+              ])),
+          Text.rich(TextSpan(
+              text: 'Person: ',
+              style: TextStyle(fontWeight: FontWeight.w600, color: Colors.grey[700]),
+              children: [
+                TextSpan(
+                  text:
+                      '${patient['name']} · ${patient['gender']}, ${patient['age']}yrs',
+                  style: TextStyle(color: Colors.black87),
+                )
+              ])),
         ],
       ),
     ),
@@ -360,7 +282,8 @@ Widget caseCard(Map<String, dynamic> data) {
                     : ListView.builder(
                         padding: EdgeInsets.all(16),
                         itemCount: myCases.length,
-                        itemBuilder: (context, index) => caseCard(myCases[index]),
+                        itemBuilder: (context, index) => caseSummaryCard(myCases[index]),
+
                       ),
           ),
         ),
