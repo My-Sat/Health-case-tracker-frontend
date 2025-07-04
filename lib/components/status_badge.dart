@@ -24,7 +24,7 @@ Color getStatusColor(String status) {
       return Colors.blue;
     case 'confirmed':
       return Colors.red;
-    case 'rule-out':
+    case 'not a case':
       return Colors.green;
     case 'recovered':
       return Colors.green;

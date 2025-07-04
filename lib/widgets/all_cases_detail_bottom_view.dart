@@ -1,21 +1,15 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 
-class CaseDetailBottomSheet extends StatelessWidget {
+class CaseViewBottomSheet extends StatelessWidget {
   final Map<String, dynamic> caseData;
-  final Function(String caseId, [String? status, String? patientStatus]) onUpdate;
 
-  const CaseDetailBottomSheet({
-    required this.caseData,
-    required this.onUpdate,
-    super.key,
-  });
+  const CaseViewBottomSheet({required this.caseData, super.key});
 
   @override
   Widget build(BuildContext context) {
     final patient = caseData['patient'];
-    final caseStatus = caseData['status'];
-    final patientStatus = patient['status'];
+    final status = caseData['status'];
     final location = caseData['healthFacility']['location'];
     final timeline = caseData['timeline'] ?? '';
     final formattedTimeline = timeline.isNotEmpty
@@ -60,52 +54,16 @@ class CaseDetailBottomSheet extends StatelessWidget {
               ),
             ),
             infoBox('Case Type', caseData['caseType'].toString().toUpperCase()),
-            infoBox('Case Status', caseStatus.toUpperCase()),
-            if (caseStatus == 'suspected') ...[
-              ElevatedButton(
-                onPressed: () {
-                  Navigator.pop(context);
-                  onUpdate(caseData['_id'], 'confirmed');
-                },
-                child: Text('Confirm Case'),
-              ),
-              SizedBox(height: 8),
-              ElevatedButton(
-                onPressed: () {
-                  Navigator.pop(context);
-                  onUpdate(caseData['_id'], 'rule-out');
-                },
-                child: Text('Rule Out Case'),
-              ),
-            ],
-            SizedBox(height: 10),
+            infoBox('Case Status', status.toUpperCase()),
             infoBox('Reported On', formattedTimeline),
             infoBox('Facility', caseData['healthFacility']['name']),
             infoBox('Region', location['region']),
             infoBox('District', location['district']),
             infoBox('Community', location['community']),
-            infoBox('Patient Name', patient['name']),
-            infoBox('Patient Status', patientStatus),
-            if (patientStatus == 'Ongoing treatment') ...[
-              ElevatedButton(
-                onPressed: () {
-                  Navigator.pop(context);
-                  onUpdate(caseData['_id'], null, 'Recovered');
-                },
-                child: Text('Mark as Recovered'),
-              ),
-              SizedBox(height: 8),
-              ElevatedButton(
-                onPressed: () {
-                  Navigator.pop(context);
-                  onUpdate(caseData['_id'], null, 'Deceased');
-                },
-                child: Text('Mark as Deceased'),
-              ),
-            ],
+            infoBox('Reported By', caseData['officer']['fullName']),
             infoBox('Patient Age', '${patient['age']} yrs'),
             infoBox('Patient Gender', patient['gender']),
-            infoBox('Patient Phone', patient['phone']),
+            infoBox('Patient Status', patient['status']),
             SizedBox(height: 20),
           ],
         ),

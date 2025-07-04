@@ -6,6 +6,7 @@ import 'package:http/http.dart' as http;
 import 'package:provider/provider.dart';
 import '../providers/auth_provider.dart';
 import 'package:intl/intl.dart'; // This import is required for DateFormat
+import '../widgets/all_cases_detail_bottom_view.dart';
 
 class AllCasesScreen extends StatefulWidget {
   const AllCasesScreen({super.key});
@@ -42,92 +43,89 @@ class _AllCasesScreenState extends State<AllCasesScreen> {
     }
   }
 
-  Widget caseCard(Map<String, dynamic> data) {
-    final patient = data['patient'];
-    final status = data['status'];
-    final location = data['healthFacility']['location'];
-    final String timeline = data['timeline'] ?? '';
-    final String formattedTimeline = timeline.isNotEmpty
-    ? DateFormat.yMMMMd().add_jm().format(DateTime.parse(timeline))
-    : 'N/A';
+Widget caseSummaryCard(Map<String, dynamic> data) {
+  final patient = data['patient'];
+  final caseType = data['caseType'].toString().toUpperCase();
+  final status = data['status'];
+  final timeline = data['timeline'] ?? '';
+  final formattedTimeline = timeline.isNotEmpty
+      ? DateFormat.yMMMd().format(DateTime.parse(timeline))
+      : 'N/A';
+  final location = data['healthFacility']['location'];
+  final String displayLocation = location['community'] ?? 'N/A';
 
+  Color statusColor = Colors.grey;
+  if (status == 'suspected') statusColor = Colors.orange;
+  if (status == 'confirmed') statusColor = Colors.red;
+  if (status == 'Not a Case') statusColor = Colors.green;
 
-    Widget infoBox(String label, String value) {
-      return Container(
-        margin: EdgeInsets.symmetric(vertical: 4),
-        padding: EdgeInsets.all(12),
-        decoration: BoxDecoration(
-          color: Colors.grey[100],
-          borderRadius: BorderRadius.circular(10),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.grey.shade300,
-              offset: Offset(2, 2),
-              blurRadius: 4,
-            ),
-          ],
+  return GestureDetector(
+    onTap: () {
+      showModalBottomSheet(
+        context: context,
+        isScrollControlled: true,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.vertical(top: Radius.circular(25)),
         ),
-        child: Text(
-          '$label: $value',
-          style: TextStyle(fontSize: 14, fontWeight: FontWeight.w500),
-        ),
+        builder: (context) => CaseViewBottomSheet(caseData: data),
       );
-    }
-
-      Widget caseTypeBox(String value) {
-  return Container(
-    margin: EdgeInsets.only(bottom: 8),
-    padding: EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-    decoration: BoxDecoration(
-        color: Colors.grey[100],
-        borderRadius: BorderRadius.circular(10),
+    },
+    child: Container(
+      margin: EdgeInsets.symmetric(vertical: 6, horizontal: 4),
+      padding: EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        border: Border.all(color: Colors.grey.shade300),
+        borderRadius: BorderRadius.circular(12),
         boxShadow: [
           BoxShadow(
-            color: Colors.grey.shade300,
+            color: Colors.grey.shade200,
+            blurRadius: 3,
             offset: Offset(2, 2),
-            blurRadius: 4,
           ),
         ],
-
-    ),
-    child: Text(
-      'CASE TYPE: ${value.toUpperCase()}',
-      style: TextStyle(
-        fontSize: 16,
-        fontWeight: FontWeight.bold,
-        color: Colors.black87,
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text(caseType,
+                  style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+              Text(status.toUpperCase(),
+                  style: TextStyle(
+                      fontSize: 14,
+                      fontWeight: FontWeight.w600,
+                      color: statusColor)),
+            ],
+          ),
+          SizedBox(height: 4),
+          Text.rich(TextSpan(
+              text: 'Reported: ',
+              style: TextStyle(fontWeight: FontWeight.w600, color: Colors.grey[700]),
+              children: [
+                TextSpan(
+                  text: '$formattedTimeline · $displayLocation',
+                  style: TextStyle(
+                      fontWeight: FontWeight.normal, color: Colors.black87),
+                )
+              ])),
+          Text.rich(TextSpan(
+              text: 'Patient: ',
+              style: TextStyle(fontWeight: FontWeight.w600, color: Colors.grey[700]),
+              children: [
+                TextSpan(
+                  text:
+                      '${patient['gender']}, ${patient['age']}yrs · ${patient['status']}',
+                  style: TextStyle(color: Colors.black87),
+                )
+              ])),
+        ],
       ),
     ),
   );
 }
-
-
-    return Card(
-      margin: EdgeInsets.symmetric(vertical: 10, horizontal: 16),
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-      elevation: 4,
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            caseTypeBox(data['caseType']),
-            infoBox('Case Status', status),
-            infoBox('Reported On', formattedTimeline),
-            infoBox('Facility', data['healthFacility']['name']),
-            infoBox('Region', location['region']),
-            infoBox('District', location['district']),
-            infoBox('Community', location['community']),
-            infoBox('Reported By', data['officer']['fullName']),
-            infoBox('Patient Age', '${patient['age']} yrs'),
-            infoBox('Patient Gender', patient['gender']),
-            infoBox('Patient Status', patient['status']),
-
-          ],
-        ),
-      ),
-    );
-  }
 
   @override
   Widget build(BuildContext context) {
@@ -146,7 +144,7 @@ class _AllCasesScreenState extends State<AllCasesScreen> {
       children: [
         SizedBox(height: 16),
         Text(
-          'All Reported Cases',
+          'All Reported Cases (${allCases.length})',
           style: TextStyle(
             fontSize: 22,
             fontWeight: FontWeight.bold,
@@ -167,7 +165,8 @@ class _AllCasesScreenState extends State<AllCasesScreen> {
                     : ListView.builder(
                         padding: EdgeInsets.all(16),
                         itemCount: allCases.length,
-                        itemBuilder: (context, index) => caseCard(allCases[index]),
+                        itemBuilder: (context, index) => caseSummaryCard(allCases[index]),
+
                       ),
           ),
         ),

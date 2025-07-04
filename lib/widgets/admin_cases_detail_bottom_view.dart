@@ -1,0 +1,75 @@
+import 'package:flutter/material.dart';
+import 'package:intl/intl.dart';
+
+class CaseAdminViewBottomSheet extends StatelessWidget {
+  final Map<String, dynamic> caseData;
+
+  const CaseAdminViewBottomSheet({required this.caseData, super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    final patient = caseData['patient'];
+    final status = caseData['status'];
+    final location = caseData['healthFacility']['location'];
+    final timeline = caseData['timeline'] ?? '';
+    final formattedTimeline = timeline.isNotEmpty
+        ? DateFormat.yMMMMd().add_jm().format(DateTime.parse(timeline))
+        : 'N/A';
+
+    Widget infoBox(String label, String value) {
+      return Container(
+        margin: EdgeInsets.symmetric(vertical: 4),
+        padding: EdgeInsets.all(12),
+        decoration: BoxDecoration(
+          color: Colors.grey[100],
+          borderRadius: BorderRadius.circular(10),
+        ),
+        child: Text(
+          '$label: $value',
+          style: TextStyle(fontSize: 14, fontWeight: FontWeight.w500),
+        ),
+      );
+    }
+
+    return Padding(
+      padding: EdgeInsets.only(
+        bottom: MediaQuery.of(context).viewInsets.bottom,
+        top: 20,
+        left: 16,
+        right: 16,
+      ),
+      child: SingleChildScrollView(
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Center(
+              child: Container(
+                width: 50,
+                height: 5,
+                margin: EdgeInsets.only(bottom: 16),
+                decoration: BoxDecoration(
+                  color: Colors.grey[400],
+                  borderRadius: BorderRadius.circular(10),
+                ),
+              ),
+            ),
+            infoBox('Case Type', caseData['caseType'].toString().toUpperCase()),
+            infoBox('Case Status', status.toUpperCase()),
+            infoBox('Reported On', formattedTimeline),
+            infoBox('Facility', caseData['healthFacility']['name']),
+            infoBox('Region', location['region']),
+            infoBox('District', location['district']),
+            infoBox('Community', location['community']),
+            infoBox('Reported By', caseData['officer']['fullName']),
+            infoBox('Patient Name', patient['name']),
+            infoBox('Patient Age', '${patient['age']} yrs'),
+            infoBox('Patient Gender', patient['gender']),
+            infoBox('Patient Phone', patient['phone']),
+            infoBox('Patient Status', patient['status']),
+            SizedBox(height: 20),
+          ],
+        ),
+      ),
+    );
+  }
+}

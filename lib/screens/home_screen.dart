@@ -11,6 +11,7 @@ import 'login_screen.dart';
 import 'my_cases_screen.dart';
 import 'all_cases_screen.dart';
 import 'package:intl/intl.dart';
+import '../widgets/admin_cases_detail_bottom_view.dart';
 
 
 class HomeScreen extends StatefulWidget {
@@ -49,90 +50,84 @@ class _HomeScreenState extends State<HomeScreen> {
     }
   }
 
-Widget caseCard(Map<String, dynamic> data, {bool isAdmin = false}) {
+Widget caseSummaryCard(Map<String, dynamic> data) {
   final patient = data['patient'];
+  final caseType = data['caseType'].toString().toUpperCase();
   final status = data['status'];
-  final patientStatus = patient['status'];
+  final timeline = data['timeline'] ?? '';
+  final formattedTimeline = timeline.isNotEmpty
+      ? DateFormat.yMMMd().format(DateTime.parse(timeline))
+      : 'N/A';
   final location = data['healthFacility']['location'];
-  final String timeline = data['timeline'] ?? '';
-final String formattedTimeline = timeline.isNotEmpty
-    ? DateFormat.yMMMMd().add_jm().format(DateTime.parse(timeline))
-    : 'N/A';
+  final String displayLocation = location['community'] ?? 'N/A';
 
+  Color statusColor = Colors.grey;
+  if (status == 'suspected') statusColor = Colors.orange;
+  if (status == 'confirmed') statusColor = Colors.red;
+  if (status == 'Not a Case') statusColor = Colors.green;
 
-
-  Widget infoBox(String label, String value) {
-    return Container(
-      margin: EdgeInsets.symmetric(vertical: 4),
+  return GestureDetector(
+    onTap: () {
+      showModalBottomSheet(
+        context: context,
+        isScrollControlled: true,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.vertical(top: Radius.circular(25)),
+        ),
+        builder: (context) => CaseAdminViewBottomSheet(caseData: data),
+      );
+    },
+    child: Container(
+      margin: EdgeInsets.symmetric(vertical: 6, horizontal: 4),
       padding: EdgeInsets.all(12),
       decoration: BoxDecoration(
-        color: Colors.grey[100],
-        borderRadius: BorderRadius.circular(10),
+        color: Colors.white,
+        border: Border.all(color: Colors.grey.shade300),
+        borderRadius: BorderRadius.circular(12),
         boxShadow: [
           BoxShadow(
-            color: Colors.grey.shade300,
+            color: Colors.grey.shade200,
+            blurRadius: 3,
             offset: Offset(2, 2),
-            blurRadius: 4,
           ),
         ],
       ),
-      child: Text(
-        '$label: $value',
-        style: TextStyle(fontSize: 14, fontWeight: FontWeight.w500),
-      ),
-    );
-  }
-
-    Widget caseTypeBox(String value) {
-  return Container(
-    margin: EdgeInsets.only(bottom: 8),
-    padding: EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-    decoration: BoxDecoration(
-        color: Colors.grey[100],
-        borderRadius: BorderRadius.circular(10),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.grey.shade300,
-            offset: Offset(2, 2),
-            blurRadius: 4,
-          ),
-        ],
-
-    ),
-    child: Text(
-      'CASE TYPE: ${value.toUpperCase()}',
-      style: TextStyle(
-        fontSize: 16,
-        fontWeight: FontWeight.bold,
-        color: Colors.black87,
-      ),
-    ),
-  );
-}
-
-
-  return Card(
-    margin: EdgeInsets.symmetric(vertical: 10, horizontal: 16),
-    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(35)),
-    elevation: 4,
-    child: Padding(
-      padding: const EdgeInsets.all(16),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          caseTypeBox(data['caseType']),
-          infoBox('Case Status', status),
-          infoBox('Reported On', formattedTimeline),
-          infoBox('Facility', data['healthFacility']['name']),
-          infoBox('Region', location['region']),
-          infoBox('District', location['district']),
-          infoBox('Community', location['community']),
-          infoBox('Reported By', data['officer']['fullName']),
-          infoBox('Patient Name', patient['name']),
-          infoBox('Patient Age', '${patient['age']} yrs'),
-          infoBox('Patient Gender', patient['gender']),
-          infoBox('Patient Phone', patient['phone']),
-          infoBox('Patient Status', patientStatus),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text(caseType,
+                  style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+              Text(status.toUpperCase(),
+                  style: TextStyle(
+                      fontSize: 14,
+                      fontWeight: FontWeight.w600,
+                      color: statusColor)),
+            ],
+          ),
+          SizedBox(height: 4),
+          Text.rich(TextSpan(
+              text: 'Reported: ',
+              style: TextStyle(fontWeight: FontWeight.w600, color: Colors.grey[700]),
+              children: [
+                TextSpan(
+                  text: '$formattedTimeline · $displayLocation',
+                  style: TextStyle(
+                      fontWeight: FontWeight.normal, color: Colors.black87),
+                )
+              ])),
+          Text.rich(TextSpan(
+              text: 'Patient: ',
+              style: TextStyle(fontWeight: FontWeight.w600, color: Colors.grey[700]),
+              children: [
+                TextSpan(
+                  text:
+                      '${patient['name']} · ${patient['gender']}, ${patient['age']}yrs',
+                  style: TextStyle(color: Colors.black87),
+                )
+              ])),
         ],
       ),
     ),
@@ -230,7 +225,7 @@ final String formattedTimeline = timeline.isNotEmpty
       children: [
         SizedBox(height: 16),
         Text(
-          'Reported Cases',
+          'Reported Cases (${caseList.length})',
           style: TextStyle(
             fontSize: 22,
             fontWeight: FontWeight.bold,
@@ -250,7 +245,7 @@ final String formattedTimeline = timeline.isNotEmpty
                     padding: EdgeInsets.all(16),
                     itemCount: caseList.length,
                     itemBuilder: (context, index) =>
-                        caseCard(caseList[index], isAdmin: true),
+                        caseSummaryCard(caseList[index]),
                   ),
           ),
         ),
