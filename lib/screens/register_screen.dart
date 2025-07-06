@@ -1,3 +1,4 @@
+// lib/screens/register_screen.dart
 // ignore_for_file: library_private_types_in_public_api, use_build_context_synchronously
 
 import 'dart:convert';
@@ -18,28 +19,106 @@ class _RegisterScreenState extends State<RegisterScreen> {
   final usernameCtrl = TextEditingController();
   final passwordCtrl = TextEditingController();
   final contactCtrl = TextEditingController();
-  List<HealthFacility> facilities = [];
+
+  String? selectedRegion;
+  String? selectedDistrict;
+  String? selectedSubDistrict;
   String? selectedFacilityId;
+
+  List<String> regions = [];
+  List<String> districts = [];
+  List<String> subDistricts = [];
+  List<HealthFacility> facilities = [];
+
   bool isLoading = false;
   bool fetchError = false;
 
   @override
   void initState() {
     super.initState();
-    _loadFacilities();
+    _loadRegions();
   }
 
-  Future<void> _loadFacilities() async {
+  Future<void> _loadRegions() async {
     setState(() => isLoading = true);
     try {
-      final data = await ApiService.fetchFacilities();
+      regions = await ApiService.fetchRegions();
       setState(() {
-        facilities = data;
-        isLoading = false;
         fetchError = false;
+        isLoading = false;
       });
     } catch (e) {
-      print('Error fetching facilities: $e');
+      setState(() {
+        fetchError = true;
+        isLoading = false;
+      });
+    }
+  }
+
+  Future<void> _loadDistricts(String region) async {
+    setState(() {
+      selectedDistrict = null;
+      selectedSubDistrict = null;
+      selectedFacilityId = null;
+      districts = [];
+      subDistricts = [];
+      facilities = [];
+      isLoading = true;
+    });
+
+    try {
+      districts = await ApiService.fetchDistricts(region);
+      facilities = await ApiService.fetchFacilitiesUnder(region: region);
+      setState(() => isLoading = false);
+    } catch (_) {
+      setState(() {
+        fetchError = true;
+        isLoading = false;
+      });
+    }
+  }
+
+  Future<void> _loadSubDistricts(String district) async {
+    setState(() {
+      selectedSubDistrict = null;
+      selectedFacilityId = null;
+      subDistricts = [];
+      facilities = [];
+      isLoading = true;
+    });
+
+    try {
+      subDistricts = await ApiService.fetchSubDistricts(selectedRegion!, district);
+      if (subDistricts.isEmpty) {
+        facilities = await ApiService.fetchFacilitiesUnder(
+          region: selectedRegion!,
+          district: district,
+        );
+      }
+      setState(() => isLoading = false);
+    } catch (_) {
+      setState(() {
+        fetchError = true;
+        isLoading = false;
+      });
+    }
+  }
+
+  Future<void> _loadFacilitiesUnderSubDistrict(String subDistrict) async {
+    setState(() {
+      selectedFacilityId = null;
+      facilities = [];
+      isLoading = true;
+    });
+
+    try {
+      facilities = await ApiService.fetchFacilitiesUnder(
+        region: selectedRegion!,
+        district: selectedDistrict!,
+        subDistrict: subDistrict,
+      );
+      setState(() => isLoading = false);
+    } catch (_) {
       setState(() {
         fetchError = true;
         isLoading = false;
@@ -49,7 +128,8 @@ class _RegisterScreenState extends State<RegisterScreen> {
 
   Future<void> registerUser() async {
     if (selectedFacilityId == null) {
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Select a health facility')));
+      ScaffoldMessenger.of(context)
+          .showSnackBar(SnackBar(content: Text('Please select a health facility')));
       return;
     }
 
@@ -72,7 +152,8 @@ class _RegisterScreenState extends State<RegisterScreen> {
       setState(() => isLoading = false);
 
       if (response.statusCode == 201) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Registered successfully')));
+        ScaffoldMessenger.of(context)
+            .showSnackBar(SnackBar(content: Text('Registered successfully')));
         Navigator.pop(context);
       } else {
         final msg = jsonDecode(response.body)['message'] ?? 'Registration failed';
@@ -80,18 +161,39 @@ class _RegisterScreenState extends State<RegisterScreen> {
       }
     } catch (e) {
       setState(() => isLoading = false);
-      print('Registration error: $e');
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error occurred')));
     }
   }
 
-  Widget buildInput(String label, IconData icon, TextEditingController controller, {bool obscure = false}) {
+  Widget buildInput(String label, IconData icon, TextEditingController controller,
+      {bool obscure = false}) {
     return TextField(
       controller: controller,
       obscureText: obscure,
       decoration: InputDecoration(
         labelText: label,
         prefixIcon: Icon(icon),
+        border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
+        filled: true,
+        fillColor: Colors.grey[50],
+      ),
+    );
+  }
+
+  Widget buildDropdown<T>({
+    required String label,
+    required T? value,
+    required List<T> items,
+    required ValueChanged<T?> onChanged,
+  }) {
+    return DropdownButtonFormField<T>(
+      value: value,
+      items: items
+          .map((item) => DropdownMenuItem<T>(value: item, child: Text(item.toString())))
+          .toList(),
+      onChanged: onChanged,
+      decoration: InputDecoration(
+        labelText: label,
         border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
         filled: true,
         fillColor: Colors.grey[50],
@@ -127,60 +229,89 @@ class _RegisterScreenState extends State<RegisterScreen> {
                   ),
                 ],
               ),
-              child: isLoading && facilities.isEmpty
-                  ? Center(child: CircularProgressIndicator())
-                  : fetchError
-                      ? Column(
-                          children: [
-                            Text('Failed to load facilities'),
-                            TextButton(onPressed: _loadFacilities, child: Text('Retry')),
-                          ],
-                        )
-                      : Column(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            Text(
-                              'Register Officer',
-                              style: TextStyle(
-                                fontSize: 20,
-                                fontWeight: FontWeight.bold,
-                                color: Colors.teal.shade800,
-                              ),
-                            ),
-                            SizedBox(height: 20),
-                            buildInput('Full Name', Icons.person, fullNameCtrl),
-                            SizedBox(height: 16),
-                            buildInput('Username', Icons.account_circle, usernameCtrl),
-                            SizedBox(height: 16),
-                            buildInput('Password', Icons.lock, passwordCtrl, obscure: true),
-                            SizedBox(height: 16),
-                            buildInput('Contact Info', Icons.phone, contactCtrl),
-                            SizedBox(height: 16),
-                            DropdownButtonFormField<String>(
-                              value: selectedFacilityId,
-                              items: facilities
-                                  .map((f) => DropdownMenuItem(value: f.id, child: Text(f.name)))
-                                  .toList(),
-                              onChanged: (val) => setState(() => selectedFacilityId = val),
-                              decoration: InputDecoration(
-                                labelText: 'Select Health Facility',
-                                border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
-                                filled: true,
-                                fillColor: Colors.grey[50],
-                              ),
-                            ),
-                            SizedBox(height: 24),
-                            ElevatedButton(
-                              onPressed: registerUser,
-                              style: ElevatedButton.styleFrom(
-                                backgroundColor: Colors.teal,
-                                foregroundColor: Colors.white,
-                                padding: EdgeInsets.symmetric(horizontal: 50, vertical: 14),
-                              ),
-                              child: Text('Register'),
-                            ),
-                          ],
-                        ),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(
+                    'Register Officer',
+                    style: TextStyle(
+                      fontSize: 20,
+                      fontWeight: FontWeight.bold,
+                      color: Colors.teal.shade800,
+                    ),
+                  ),
+                  SizedBox(height: 20),
+                  buildInput('Full Name', Icons.person, fullNameCtrl),
+                  SizedBox(height: 16),
+                  buildInput('Username', Icons.account_circle, usernameCtrl),
+                  SizedBox(height: 16),
+                  buildInput('Password', Icons.lock, passwordCtrl, obscure: true),
+                  SizedBox(height: 16),
+                  buildInput('Contact Info', Icons.phone, contactCtrl),
+                  SizedBox(height: 16),
+                  if (fetchError)
+                    Text('Failed to load data. Please retry.', style: TextStyle(color: Colors.red)),
+                  buildDropdown(
+                    label: 'Select Region',
+                    value: selectedRegion,
+                    items: regions,
+                    onChanged: (val) {
+                      selectedRegion = val;
+                      _loadDistricts(val!);
+                    },
+                  ),
+                  SizedBox(height: 16),
+                  if (districts.isNotEmpty)
+                    buildDropdown(
+                      label: 'Select District',
+                      value: selectedDistrict,
+                      items: districts,
+                      onChanged: (val) {
+                        selectedDistrict = val;
+                        _loadSubDistricts(val!);
+                      },
+                    ),
+                  SizedBox(height: 16),
+                  if (subDistricts.isNotEmpty)
+                    buildDropdown(
+                      label: 'Select Sub-District',
+                      value: selectedSubDistrict,
+                      items: subDistricts,
+                      onChanged: (val) {
+                        selectedSubDistrict = val;
+                        _loadFacilitiesUnderSubDistrict(val!);
+                      },
+                    ),
+                  SizedBox(height: 16),
+                  if (facilities.isNotEmpty)
+                    DropdownButtonFormField<String>(
+                      value: selectedFacilityId,
+                      items: facilities
+                          .map((f) => DropdownMenuItem(
+                                value: f.id,
+                                child: Text(f.name),
+                              ))
+                          .toList(),
+                      onChanged: (val) => setState(() => selectedFacilityId = val),
+                      decoration: InputDecoration(
+                        labelText: 'Select Facility',
+                        border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
+                        filled: true,
+                        fillColor: Colors.grey[50],
+                      ),
+                    ),
+                  SizedBox(height: 24),
+                  ElevatedButton(
+                    onPressed: isLoading ? null : registerUser,
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.teal,
+                      foregroundColor: Colors.white,
+                      padding: EdgeInsets.symmetric(horizontal: 50, vertical: 14),
+                    ),
+                    child: Text(isLoading ? 'Submitting...' : 'Register'),
+                  ),
+                ],
+              ),
             ),
           ),
         ),

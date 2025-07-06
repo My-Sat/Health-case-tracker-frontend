@@ -64,7 +64,7 @@ Widget caseSummaryCard(Map<String, dynamic> data) {
   Color statusColor = Colors.grey;
   if (status == 'suspected') statusColor = Colors.orange;
   if (status == 'confirmed') statusColor = Colors.red;
-  if (status == 'Not a Case') statusColor = Colors.green;
+  if (status == 'not a case') statusColor = Colors.green;
 
   return GestureDetector(
     onTap: () {
