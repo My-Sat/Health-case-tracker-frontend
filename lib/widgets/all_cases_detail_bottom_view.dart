@@ -57,9 +57,11 @@ class CaseViewBottomSheet extends StatelessWidget {
             infoBox('Case Status', status.toUpperCase()),
             infoBox('Reported On', formattedTimeline),
             infoBox('Facility', caseData['healthFacility']['name']),
-            infoBox('Region', location['region']),
-            infoBox('District', location['district']),
             infoBox('Community', location['community']),
+            if (location['subDistrict'] != null && location['subDistrict'].toString().trim().isNotEmpty)
+            infoBox('Sub-District', location['subDistrict']),
+            infoBox('District', location['district']),
+            infoBox('Region', location['region']),
             infoBox('Reported By', caseData['officer']['fullName']),
             infoBox('Patient Age', '${patient['age']} yrs'),
             infoBox('Patient Gender', patient['gender']),
