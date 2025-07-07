@@ -80,7 +80,7 @@ class _CreateFacilityScreenState extends State<CreateFacilityScreen> {
         ? newSubDistrictCtrl.text.trim()
         : selectedSubDistrict?.trim();
 
-    if ([region, district].any((v) => v == null || v!.isEmpty)) {
+    if ([region, district].any((v) => v == null || v.isEmpty)) {
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Region and District are required')));
       setState(() => isSubmitting = false);
       return;
