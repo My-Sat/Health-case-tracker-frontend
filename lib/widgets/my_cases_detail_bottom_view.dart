@@ -76,17 +76,24 @@ class CaseDetailBottomSheet extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Center(
-              child: Container(
-                width: 50,
-                height: 5,
-                margin: EdgeInsets.only(bottom: 16),
-                decoration: BoxDecoration(
-                  color: Colors.grey[400],
-                  borderRadius: BorderRadius.circular(10),
+           Align(
+                  alignment: Alignment.topRight,
+                  child: IconButton(
+                    icon: Icon(Icons.close),
+                    onPressed: () => Navigator.pop(context),
+                  ),
                 ),
-              ),
-            ),
+                Center(
+                  child: Container(
+                    width: 50,
+                    height: 5,
+                    margin: EdgeInsets.only(bottom: 16),
+                    decoration: BoxDecoration(
+                      color: Colors.grey[400],
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                  ),
+                ),
             infoBox('Case Type', caseData['caseType'].toString().toUpperCase()),
             infoBox('Case Status', caseStatus.toUpperCase()),
             if (caseStatus == 'suspected') ...[
