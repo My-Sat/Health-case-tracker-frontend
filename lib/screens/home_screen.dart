@@ -3,6 +3,7 @@
 import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
+import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
 import '../providers/auth_provider.dart';
 import 'create_case_screen.dart';
@@ -10,9 +11,7 @@ import 'create_facility_screen.dart';
 import 'login_screen.dart';
 import 'my_cases_screen.dart';
 import 'all_cases_screen.dart';
-import 'package:intl/intl.dart';
 import '../widgets/admin_cases_detail_bottom_view.dart';
-
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -25,6 +24,10 @@ class _HomeScreenState extends State<HomeScreen> {
   List<dynamic> caseList = [];
   bool isLoading = true;
 
+  String selectedFilter = 'All';
+  List<String> filterOptions = ['All'];
+  Set<String> regions = {}, districts = {}, communities = {};
+
   @override
   void initState() {
     super.initState();
@@ -32,8 +35,7 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   Future<void> fetchCases() async {
-    final auth = Provider.of<AuthProvider>(context, listen: false);
-    final token = auth.user!.token;
+    final token = Provider.of<AuthProvider>(context, listen: false).user!.token;
 
     final response = await http.get(
       Uri.parse('https://health-case-tracker-backend.onrender.com/api/cases'),
@@ -41,104 +43,137 @@ class _HomeScreenState extends State<HomeScreen> {
     );
 
     if (response.statusCode == 200) {
-      setState(() {
-        caseList = jsonDecode(response.body);
-        isLoading = false;
-      });
+      caseList = jsonDecode(response.body);
+      _populateFilters();
+      setState(() => isLoading = false);
     } else {
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Failed to load cases')));
+      setState(() => isLoading = false);
+      ScaffoldMessenger.of(context)
+          .showSnackBar(SnackBar(content: Text('Failed to load cases')));
     }
   }
 
-Widget caseSummaryCard(Map<String, dynamic> data) {
-  final patient = data['patient'];
-  final caseType = data['caseType'].toString().toUpperCase();
-  final status = data['status'];
-  final timeline = data['timeline'] ?? '';
-  final formattedTimeline = timeline.isNotEmpty
-      ? DateFormat.yMMMd().format(DateTime.parse(timeline))
-      : 'N/A';
-  final location = data['healthFacility']['location'];
-  final String displayLocation = location['community'] ?? 'N/A';
+  void _populateFilters() {
+    regions = caseList.map((e) => e['healthFacility']['location']['region'] as String).toSet();
+    districts = caseList.map((e) => e['healthFacility']['location']['district'] as String).toSet();
+    communities = caseList.map((e) => e['healthFacility']['location']['community'] as String).toSet();
 
-  Color statusColor = Colors.grey;
-  if (status == 'suspected') statusColor = Colors.orange;
-  if (status == 'confirmed') statusColor = Colors.red;
-  if (status == 'not a case') statusColor = Colors.green;
+    filterOptions = [
+      'All',
+      'Suspected',
+      'Confirmed',
+      'Not a Case',
+      'Ongoing Treatment',
+      'Recovered',
+      'Deceased',
+      'Male',
+      'Female',
+      'Other',
+      ...regions,
+      ...districts,
+      ...communities,
+    ];
+  }
 
-  return GestureDetector(
-    onTap: () {
-      showModalBottomSheet(
-        context: context,
-        isScrollControlled: true,
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.vertical(top: Radius.circular(25)),
+  List<dynamic> getFilteredCases() {
+    if (selectedFilter == 'All') return caseList;
+
+    final filter = selectedFilter.toLowerCase();
+    return caseList.where((c) {
+      final loc = c['healthFacility']['location'];
+      final cs = (c['status'] ?? '').toString().toLowerCase();
+      final ps = (c['patient']['status'] ?? '').toString().toLowerCase();
+      final g = (c['patient']['gender'] ?? '').toString().toLowerCase();
+      final region = (loc['region'] ?? '').toString().toLowerCase();
+      final district = (loc['district'] ?? '').toString().toLowerCase();
+      final community = (loc['community'] ?? '').toString().toLowerCase();
+
+      return cs == filter || ps == filter || g == filter || region == filter || district == filter || community == filter;
+    }).toList();
+  }
+
+  Widget caseSummaryCard(Map<String, dynamic> data) {
+    final patient = data['patient'];
+    final caseType = data['caseType'].toString().toUpperCase();
+    final status = data['status'];
+    final timeline = data['timeline'] ?? '';
+    final formattedTimeline = timeline.isNotEmpty
+        ? DateFormat.yMMMd().format(DateTime.parse(timeline))
+        : 'N/A';
+    final location = data['healthFacility']['location'];
+    final String displayLocation = location['community'] ?? 'N/A';
+
+    Color statusColor = Colors.grey;
+    if (status == 'suspected') statusColor = Colors.orange;
+    if (status == 'confirmed') statusColor = Colors.red;
+    if (status == 'not a case') statusColor = Colors.green;
+
+    return GestureDetector(
+      onTap: () {
+        showModalBottomSheet(
+          context: context,
+          isScrollControlled: true,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.vertical(top: Radius.circular(25)),
+          ),
+          builder: (context) => CaseAdminViewBottomSheet(caseData: data),
+        );
+      },
+      child: Container(
+        margin: EdgeInsets.symmetric(vertical: 6, horizontal: 4),
+        padding: EdgeInsets.all(12),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          border: Border.all(color: Colors.grey.shade300),
+          borderRadius: BorderRadius.circular(12),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.grey.shade200,
+              blurRadius: 3,
+              offset: Offset(2, 2),
+            ),
+          ],
         ),
-        builder: (context) => CaseAdminViewBottomSheet(caseData: data),
-      );
-    },
-    child: Container(
-      margin: EdgeInsets.symmetric(vertical: 6, horizontal: 4),
-      padding: EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        border: Border.all(color: Colors.grey.shade300),
-        borderRadius: BorderRadius.circular(12),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.grey.shade200,
-            blurRadius: 3,
-            offset: Offset(2, 2),
-          ),
-        ],
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Text(caseType,
-                  style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
-              Text(status.toUpperCase(),
-                  style: TextStyle(
-                      fontSize: 14,
-                      fontWeight: FontWeight.w600,
-                      color: statusColor)),
-            ],
-          ),
-          SizedBox(height: 4),
-          Text.rich(TextSpan(
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
+              Text(caseType, style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+              Text(status.toUpperCase(), style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: statusColor)),
+            ]),
+            SizedBox(height: 4),
+            Text.rich(TextSpan(
               text: 'Reported: ',
               style: TextStyle(fontWeight: FontWeight.w600, color: Colors.grey[700]),
               children: [
                 TextSpan(
                   text: '$formattedTimeline · $displayLocation',
-                  style: TextStyle(
-                      fontWeight: FontWeight.normal, color: Colors.black87),
+                  style: TextStyle(fontWeight: FontWeight.normal, color: Colors.black87),
                 )
-              ])),
-          Text.rich(TextSpan(
+              ],
+            )),
+            Text.rich(TextSpan(
               text: 'Patient: ',
               style: TextStyle(fontWeight: FontWeight.w600, color: Colors.grey[700]),
               children: [
                 TextSpan(
-                  text:
-                      '${patient['name']} · ${patient['gender']}, ${patient['age']}yrs',
+                  text: '${patient['name']} · ${patient['gender']}, ${patient['age']}yrs',
                   style: TextStyle(color: Colors.black87),
                 )
-              ])),
-        ],
+              ],
+            )),
+          ],
+        ),
       ),
-    ),
-  );
-}
+    );
+  }
 
   bool authIsAdmin(BuildContext context) =>
       Provider.of<AuthProvider>(context, listen: false).user?.role == 'admin';
 
   @override
   Widget build(BuildContext context) {
+    final filtered = getFilteredCases();
     final auth = Provider.of<AuthProvider>(context);
 
     return Scaffold(
@@ -149,17 +184,14 @@ Widget caseSummaryCard(Map<String, dynamic> data) {
           children: [
             DrawerHeader(
               decoration: BoxDecoration(color: Colors.teal),
-              child: Text(
-                'Health Case Tracker',
-                style: TextStyle(color: Colors.white, fontSize: 20),
-              ),
+              child: Text('Health Case Tracker', style: TextStyle(color: Colors.white, fontSize: 20)),
             ),
             ListTile(
               leading: Icon(Icons.home),
               title: Text('Cases'),
               onTap: () => Navigator.pop(context),
             ),
-            if (authIsAdmin(context)) ...[
+            if (authIsAdmin(context))
               ListTile(
                 leading: Icon(Icons.add_business),
                 title: Text('Add Facility'),
@@ -168,7 +200,6 @@ Widget caseSummaryCard(Map<String, dynamic> data) {
                   Navigator.push(context, MaterialPageRoute(builder: (_) => CreateFacilityScreen()));
                 },
               ),
-            ],
             if (!authIsAdmin(context)) ...[
               ListTile(
                 leading: Icon(Icons.add),
@@ -185,8 +216,7 @@ Widget caseSummaryCard(Map<String, dynamic> data) {
                   Navigator.pop(context);
                   Navigator.push(context, MaterialPageRoute(builder: (_) => MyCasesScreen()));
                 },
-                ),
-
+              ),
               ListTile(
                 leading: Icon(Icons.list),
                 title: Text('All Cases'),
@@ -212,48 +242,69 @@ Widget caseSummaryCard(Map<String, dynamic> data) {
           ],
         ),
       ),
-     body: Container(
-  decoration: BoxDecoration(
-    gradient: LinearGradient(
-      colors: [Colors.teal.shade800, Colors.teal.shade300],
-      begin: Alignment.topCenter,
-      end: Alignment.bottomCenter,
-    ),
-  ),
-  child: SafeArea(
-    child: Column(
-      children: [
-        SizedBox(height: 16),
-        Text(
-          'Reported Cases (${caseList.length})',
-          style: TextStyle(
-            fontSize: 22,
-            fontWeight: FontWeight.bold,
-            color: Colors.white,
+      body: Container(
+        decoration: BoxDecoration(
+          gradient: LinearGradient(
+            colors: [Colors.teal.shade800, Colors.teal.shade300],
+            begin: Alignment.topCenter,
+            end: Alignment.bottomCenter,
           ),
         ),
-        SizedBox(height: 16),
-        Expanded(
-          child: Container(
-            decoration: BoxDecoration(
-              color: Colors.white.withAlpha((0.95 * 255).toInt()),
-              borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
-            ),
-            child: isLoading
-                ? Center(child: CircularProgressIndicator())
-                : ListView.builder(
-                    padding: EdgeInsets.all(16),
-                    itemCount: caseList.length,
-                    itemBuilder: (context, index) =>
-                        caseSummaryCard(caseList[index]),
+        child: SafeArea(
+          child: Column(
+            children: [
+              SizedBox(height: 16),
+              Text(
+                'Reported Cases (${filtered.length})',
+                style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold, color: Colors.white),
+              ),
+              SizedBox(height: 16),
+              Expanded(
+                child: Container(
+                  decoration: BoxDecoration(
+                    color: Colors.white.withAlpha((0.95 * 255).toInt()),
+                    borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
                   ),
+                  child: Column(
+                    children: [
+                      Padding(
+                        padding: EdgeInsets.fromLTRB(16, 16, 16, 8),
+                        child: DropdownButtonFormField<String>(
+                          value: selectedFilter,
+                          onChanged: (val) => setState(() => selectedFilter = val!),
+                          items: filterOptions.map((label) {
+                            return DropdownMenuItem(
+                              value: label,
+                              child: Text(label, overflow: TextOverflow.ellipsis),
+                            );
+                          }).toList(),
+                          decoration: InputDecoration(
+                            labelText: 'Filter by',
+                            border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
+                            filled: true,
+                            fillColor: Colors.grey[50],
+                          ),
+                        ),
+                      ),
+                      Expanded(
+                        child: isLoading
+                            ? Center(child: CircularProgressIndicator())
+                            : filtered.isEmpty
+                                ? Center(child: Text('No matching cases.'))
+                                : ListView.builder(
+                                    padding: EdgeInsets.all(16),
+                                    itemCount: filtered.length,
+                                    itemBuilder: (ctx, i) => caseSummaryCard(filtered[i]),
+                                  ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ],
           ),
         ),
-      ],
-    ),
-  ),
-),
-
+      ),
     );
   }
 }
