@@ -6,6 +6,7 @@ import '../providers/auth_provider.dart';
 import 'home_screen.dart';
 import 'register_screen.dart';
 import 'my_cases_screen.dart';
+import 'forgot_password_screen.dart';
 
 class LoginScreen extends StatelessWidget {
   final TextEditingController usernameCtrl = TextEditingController();
@@ -105,6 +106,16 @@ class LoginScreen extends StatelessWidget {
                     ),
                     child: Text("Don't have an account? Register now"),
                   ),
+                  TextButton(
+                    onPressed: () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(builder: (_) => ForgotPasswordScreen()),
+                      );
+                    },
+                    child: Text('Forgot Password?'),
+                  ),
+                  SizedBox(height: 12),
                 ],
               ),
             ),

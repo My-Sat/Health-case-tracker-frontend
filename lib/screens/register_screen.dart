@@ -1,5 +1,4 @@
-// lib/screens/register_screen.dart
-// ignore_for_file: library_private_types_in_public_api, use_build_context_synchronously
+// ignore_for_file: use_build_context_synchronously
 
 import 'dart:convert';
 import 'package:flutter/material.dart';
@@ -11,13 +10,15 @@ class RegisterScreen extends StatefulWidget {
   const RegisterScreen({super.key});
 
   @override
-  _RegisterScreenState createState() => _RegisterScreenState();
+  State<RegisterScreen> createState() => _RegisterScreenState();
 }
 
 class _RegisterScreenState extends State<RegisterScreen> {
   final fullNameCtrl = TextEditingController();
   final usernameCtrl = TextEditingController();
+  final emailCtrl = TextEditingController();
   final passwordCtrl = TextEditingController();
+  final confirmPasswordCtrl = TextEditingController();
   final contactCtrl = TextEditingController();
 
   String? selectedRegion;
@@ -32,6 +33,8 @@ class _RegisterScreenState extends State<RegisterScreen> {
 
   bool isLoading = false;
   bool fetchError = false;
+  bool passwordVisible = false;
+  bool confirmPasswordVisible = false;
 
   @override
   void initState() {
@@ -47,7 +50,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
         fetchError = false;
         isLoading = false;
       });
-    } catch (e) {
+    } catch (_) {
       setState(() {
         fetchError = true;
         isLoading = false;
@@ -128,8 +131,16 @@ class _RegisterScreenState extends State<RegisterScreen> {
 
   Future<void> registerUser() async {
     if (selectedFacilityId == null) {
-      ScaffoldMessenger.of(context)
-          .showSnackBar(SnackBar(content: Text('Please select a health facility')));
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Please select a health facility')),
+      );
+      return;
+    }
+
+    if (passwordCtrl.text != confirmPasswordCtrl.text) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Passwords do not match')),
+      );
       return;
     }
 
@@ -143,6 +154,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
         body: jsonEncode({
           'fullName': fullNameCtrl.text,
           'username': usernameCtrl.text,
+          'email': emailCtrl.text,
           'password': passwordCtrl.text,
           'contactInfo': contactCtrl.text,
           'healthFacility': selectedFacilityId,
@@ -152,27 +164,36 @@ class _RegisterScreenState extends State<RegisterScreen> {
       setState(() => isLoading = false);
 
       if (response.statusCode == 201) {
-        ScaffoldMessenger.of(context)
-            .showSnackBar(SnackBar(content: Text('Registered successfully')));
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Registered successfully')),
+        );
         Navigator.pop(context);
       } else {
         final msg = jsonDecode(response.body)['message'] ?? 'Registration failed';
         ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(msg)));
       }
-    } catch (e) {
+    } catch (_) {
       setState(() => isLoading = false);
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error occurred')));
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('An error occurred')),
+      );
     }
   }
 
   Widget buildInput(String label, IconData icon, TextEditingController controller,
-      {bool obscure = false}) {
+      {bool obscure = false, VoidCallback? toggle, bool showToggle = false}) {
     return TextField(
       controller: controller,
       obscureText: obscure,
       decoration: InputDecoration(
         labelText: label,
         prefixIcon: Icon(icon),
+        suffixIcon: showToggle
+            ? IconButton(
+                icon: Icon(obscure ? Icons.visibility_off : Icons.visibility),
+                onPressed: toggle,
+              )
+            : null,
         border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
         filled: true,
         fillColor: Colors.grey[50],
@@ -245,7 +266,25 @@ class _RegisterScreenState extends State<RegisterScreen> {
                   SizedBox(height: 16),
                   buildInput('Username', Icons.account_circle, usernameCtrl),
                   SizedBox(height: 16),
-                  buildInput('Password', Icons.lock, passwordCtrl, obscure: true),
+                  buildInput('Email', Icons.email, emailCtrl),
+                  SizedBox(height: 16),
+                  buildInput(
+                    'Password',
+                    Icons.lock,
+                    passwordCtrl,
+                    obscure: !passwordVisible,
+                    showToggle: true,
+                    toggle: () => setState(() => passwordVisible = !passwordVisible),
+                  ),
+                  SizedBox(height: 16),
+                  buildInput(
+                    'Confirm Password',
+                    Icons.lock_outline,
+                    confirmPasswordCtrl,
+                    obscure: !confirmPasswordVisible,
+                    showToggle: true,
+                    toggle: () => setState(() => confirmPasswordVisible = !confirmPasswordVisible),
+                  ),
                   SizedBox(height: 16),
                   buildInput('Contact Info', Icons.phone, contactCtrl),
                   SizedBox(height: 16),
