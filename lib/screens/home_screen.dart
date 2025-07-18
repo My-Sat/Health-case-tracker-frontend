@@ -12,6 +12,7 @@ import 'login_screen.dart';
 import 'my_cases_screen.dart';
 import 'all_cases_screen.dart';
 import '../widgets/admin_cases_detail_bottom_view.dart';
+import 'create_case_type_screen.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -92,81 +93,81 @@ class _HomeScreenState extends State<HomeScreen> {
     }).toList();
   }
 
-  Widget caseSummaryCard(Map<String, dynamic> data) {
-    final patient = data['patient'];
-    final caseType = data['caseType'].toString().toUpperCase();
-    final status = data['status'];
-    final timeline = data['timeline'] ?? '';
-    final formattedTimeline = timeline.isNotEmpty
-        ? DateFormat.yMMMd().format(DateTime.parse(timeline))
-        : 'N/A';
-    final location = data['healthFacility']['location'];
-    final String displayLocation = location['community'] ?? 'N/A';
+Widget caseSummaryCard(Map<String, dynamic> data) {
+  final patient = data['patient'];
+  final caseType = (data['caseType']['name'] ?? 'UNKNOWN').toString().toUpperCase();
+  final status = data['status'];
+  final timeline = data['timeline'] ?? '';
+  final formattedTimeline = timeline.isNotEmpty
+      ? DateFormat.yMMMd().format(DateTime.parse(timeline))
+      : 'N/A';
+  final location = data['healthFacility']['location'];
+  final String displayLocation = location['community'] ?? 'N/A';
 
-    Color statusColor = Colors.grey;
-    if (status == 'suspected') statusColor = Colors.orange;
-    if (status == 'confirmed') statusColor = Colors.red;
-    if (status == 'not a case') statusColor = Colors.green;
+  Color statusColor = Colors.grey;
+  if (status == 'suspected') statusColor = Colors.orange;
+  if (status == 'confirmed') statusColor = Colors.red;
+  if (status == 'not a case') statusColor = Colors.green;
 
-    return GestureDetector(
-      onTap: () {
-        showModalBottomSheet(
-          context: context,
-          isScrollControlled: true,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.vertical(top: Radius.circular(25)),
+  return GestureDetector(
+    onTap: () {
+      showModalBottomSheet(
+        context: context,
+        isScrollControlled: true,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.vertical(top: Radius.circular(25)),
+        ),
+        builder: (context) => CaseAdminViewBottomSheet(caseData: data),
+      );
+    },
+    child: Container(
+      margin: EdgeInsets.symmetric(vertical: 6, horizontal: 4),
+      padding: EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        border: Border.all(color: Colors.grey.shade300),
+        borderRadius: BorderRadius.circular(12),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.grey.shade200,
+            blurRadius: 3,
+            offset: Offset(2, 2),
           ),
-          builder: (context) => CaseAdminViewBottomSheet(caseData: data),
-        );
-      },
-      child: Container(
-        margin: EdgeInsets.symmetric(vertical: 6, horizontal: 4),
-        padding: EdgeInsets.all(12),
-        decoration: BoxDecoration(
-          color: Colors.white,
-          border: Border.all(color: Colors.grey.shade300),
-          borderRadius: BorderRadius.circular(12),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.grey.shade200,
-              blurRadius: 3,
-              offset: Offset(2, 2),
-            ),
-          ],
-        ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
-              Text(caseType, style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
-              Text(status.toUpperCase(), style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: statusColor)),
-            ]),
-            SizedBox(height: 4),
-            Text.rich(TextSpan(
-              text: 'Reported: ',
-              style: TextStyle(fontWeight: FontWeight.w600, color: Colors.grey[700]),
-              children: [
-                TextSpan(
-                  text: '$formattedTimeline · $displayLocation',
-                  style: TextStyle(fontWeight: FontWeight.normal, color: Colors.black87),
-                )
-              ],
-            )),
-            Text.rich(TextSpan(
-              text: 'Patient: ',
-              style: TextStyle(fontWeight: FontWeight.w600, color: Colors.grey[700]),
-              children: [
-                TextSpan(
-                  text: '${patient['name']} · ${patient['gender']}, ${patient['age']}yrs',
-                  style: TextStyle(color: Colors.black87),
-                )
-              ],
-            )),
-          ],
-        ),
+        ],
       ),
-    );
-  }
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
+            Text(caseType, style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+            Text(status.toUpperCase(), style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: statusColor)),
+          ]),
+          SizedBox(height: 4),
+          Text.rich(TextSpan(
+            text: 'Reported: ',
+            style: TextStyle(fontWeight: FontWeight.w600, color: Colors.grey[700]),
+            children: [
+              TextSpan(
+                text: '$formattedTimeline · $displayLocation',
+                style: TextStyle(fontWeight: FontWeight.normal, color: Colors.black87),
+              )
+            ],
+          )),
+          Text.rich(TextSpan(
+            text: 'Patient: ',
+            style: TextStyle(fontWeight: FontWeight.w600, color: Colors.grey[700]),
+            children: [
+              TextSpan(
+                text: '${patient['name']} · ${patient['gender']}, ${patient['age']}yrs',
+                style: TextStyle(color: Colors.black87),
+              )
+            ],
+          )),
+        ],
+      ),
+    ),
+  );
+}
 
   bool authIsAdmin(BuildContext context) =>
       Provider.of<AuthProvider>(context, listen: false).user?.role == 'admin';
@@ -198,6 +199,14 @@ class _HomeScreenState extends State<HomeScreen> {
                 onTap: () {
                   Navigator.pop(context);
                   Navigator.push(context, MaterialPageRoute(builder: (_) => CreateFacilityScreen()));
+                },
+              ),
+              ListTile(
+                leading: Icon(Icons.add_box),
+                title: Text('Add Case Type'),
+                onTap: () {
+                  Navigator.pop(context);
+                  Navigator.push(context, MaterialPageRoute(builder: (_) => CreateCaseTypeScreen()));
                 },
               ),
             if (!authIsAdmin(context)) ...[

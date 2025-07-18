@@ -114,95 +114,95 @@ class _MyCasesScreenState extends State<MyCasesScreen> {
     }).cast<Map<String, dynamic>>().toList();
   }
 
-  Widget caseSummaryCard(Map<String, dynamic> data) {
-    final patient = data['patient'];
-    final caseType = data['caseType'].toString().toUpperCase();
-    final caseStatus = data['status'];
-    final timeline = data['timeline'] ?? '';
-    final formattedTimeline = timeline.isNotEmpty
-        ? DateFormat.yMMMd().format(DateTime.parse(timeline))
-        : 'N/A';
-    final location = data['healthFacility']['location'];
-    final displayLocation = location['community'] ?? 'N/A';
-    final isRecently = data['_id'] == recentlyUpdatedCaseId;
+Widget caseSummaryCard(Map<String, dynamic> data) {
+  final patient = data['patient'];
+  final caseType = (data['caseType']['name'] ?? 'UNKNOWN').toString().toUpperCase();
+  final caseStatus = data['status'];
+  final timeline = data['timeline'] ?? '';
+  final formattedTimeline = timeline.isNotEmpty
+      ? DateFormat.yMMMd().format(DateTime.parse(timeline))
+      : 'N/A';
+  final location = data['healthFacility']['location'];
+  final displayLocation = location['community'] ?? 'N/A';
+  final isRecently = data['_id'] == recentlyUpdatedCaseId;
 
-    Color statusColor = Colors.grey;
-    switch (caseStatus.toLowerCase()) {
-      case 'suspected':
-        statusColor = Colors.orange;
-        break;
-      case 'confirmed':
-        statusColor = Colors.red;
-        break;
-      case 'not a case':
-        statusColor = Colors.green;
-        break;
-    }
-
-    return GestureDetector(
-      onTap: () => showModalBottomSheet(
-        context: context,
-        isScrollControlled: true,
-        shape: const RoundedRectangleBorder(
-          borderRadius: BorderRadius.vertical(top: Radius.circular(25)),
-        ),
-        builder: (_) => CaseDetailBottomSheet(
-          caseData: data,
-          onUpdate: updateStatus,
-        ),
-      ),
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 600),
-        curve: Curves.easeInOut,
-        margin: const EdgeInsets.symmetric(vertical: 6, horizontal: 16),
-        padding: const EdgeInsets.all(12),
-        decoration: BoxDecoration(
-          color: isRecently ? Colors.yellow.shade100 : Colors.white,
-          border: Border.all(color: Colors.grey.shade300),
-          borderRadius: BorderRadius.circular(12),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.grey.shade200,
-              blurRadius: 3,
-              offset: const Offset(2, 2),
-            ),
-          ],
-        ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Text(caseType, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
-                Text(caseStatus.toUpperCase(),
-                    style: TextStyle(
-                      fontSize: 14,
-                      fontWeight: FontWeight.w600,
-                      color: statusColor,
-                    )),
-              ],
-            ),
-            const SizedBox(height: 4),
-            Text.rich(TextSpan(
-              text: 'Reported: ',
-              style: TextStyle(fontWeight: FontWeight.w600, color: Colors.grey[700]),
-              children: [
-                TextSpan(text: '$formattedTimeline · $displayLocation', style: const TextStyle(fontWeight: FontWeight.normal)),
-              ],
-            )),
-            Text.rich(TextSpan(
-              text: 'Person: ',
-              style: TextStyle(fontWeight: FontWeight.w600, color: Colors.grey[700]),
-              children: [
-                TextSpan(text: '${patient['name']} · ${patient['gender']}, ${patient['age']}yrs'),
-              ],
-            )),
-          ],
-        ),
-      ),
-    );
+  Color statusColor = Colors.grey;
+  switch (caseStatus.toLowerCase()) {
+    case 'suspected':
+      statusColor = Colors.orange;
+      break;
+    case 'confirmed':
+      statusColor = Colors.red;
+      break;
+    case 'not a case':
+      statusColor = Colors.green;
+      break;
   }
+
+  return GestureDetector(
+    onTap: () => showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(25)),
+      ),
+      builder: (_) => CaseDetailBottomSheet(
+        caseData: data,
+        onUpdate: updateStatus,
+      ),
+    ),
+    child: AnimatedContainer(
+      duration: const Duration(milliseconds: 600),
+      curve: Curves.easeInOut,
+      margin: const EdgeInsets.symmetric(vertical: 6, horizontal: 16),
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: isRecently ? Colors.yellow.shade100 : Colors.white,
+        border: Border.all(color: Colors.grey.shade300),
+        borderRadius: BorderRadius.circular(12),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.grey.shade200,
+            blurRadius: 3,
+            offset: const Offset(2, 2),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text(caseType, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+              Text(caseStatus.toUpperCase(),
+                  style: TextStyle(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w600,
+                    color: statusColor,
+                  )),
+            ],
+          ),
+          const SizedBox(height: 4),
+          Text.rich(TextSpan(
+            text: 'Reported: ',
+            style: TextStyle(fontWeight: FontWeight.w600, color: Colors.grey[700]),
+            children: [
+              TextSpan(text: '$formattedTimeline · $displayLocation', style: const TextStyle(fontWeight: FontWeight.normal)),
+            ],
+          )),
+          Text.rich(TextSpan(
+            text: 'Person: ',
+            style: TextStyle(fontWeight: FontWeight.w600, color: Colors.grey[700]),
+            children: [
+              TextSpan(text: '${patient['name']} · ${patient['gender']}, ${patient['age']}yrs'),
+            ],
+          )),
+        ],
+      ),
+    ),
+  );
+}
 
   @override
   Widget build(BuildContext context) {

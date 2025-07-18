@@ -1,4 +1,4 @@
-// ignore_for_file: use_build_context_synchronously
+// ignore_for_file: use_build_context_synchronously, library_private_types_in_public_api
 
 import 'dart:convert';
 import 'package:flutter/material.dart';
@@ -10,27 +10,57 @@ class CreateCaseScreen extends StatefulWidget {
   const CreateCaseScreen({super.key});
 
   @override
-  // ignore: library_private_types_in_public_api
   _CreateCaseScreenState createState() => _CreateCaseScreenState();
 }
 
 class _CreateCaseScreenState extends State<CreateCaseScreen> {
-  final caseTypeCtrl = TextEditingController();
   final nameCtrl = TextEditingController();
   final ageCtrl = TextEditingController();
   final phoneCtrl = TextEditingController();
+
+  List<dynamic> caseTypes = [];
+  dynamic selectedCaseType;
 
   String gender = 'male';
   String patientStatus = 'Ongoing treatment';
   bool isSubmitting = false;
 
+  @override
+  void initState() {
+    super.initState();
+    loadCaseTypes();
+  }
+
+  Future<void> loadCaseTypes() async {
+    final token = Provider.of<AuthProvider>(context, listen: false).user!.token;
+
+    final res = await http.get(
+      Uri.parse('https://health-case-tracker-backend.onrender.com/api/casetypes'),
+      headers: {
+        'Authorization': 'Bearer $token',
+      },
+    );
+
+    if (res.statusCode == 200) {
+      final list = jsonDecode(res.body);
+      setState(() {
+        caseTypes = list;
+        selectedCaseType = list.isNotEmpty ? list[0] : null;
+      });
+    } else {
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Failed to load case types')));
+    }
+  }
+
   Future<void> submitCase() async {
+    if (selectedCaseType == null) return;
+
     setState(() => isSubmitting = true);
     final auth = Provider.of<AuthProvider>(context, listen: false);
     final token = auth.user!.token;
 
     final body = {
-      'caseType': caseTypeCtrl.text,
+      'caseType': selectedCaseType['_id'],
       'patient': {
         'name': nameCtrl.text,
         'age': int.tryParse(ageCtrl.text) ?? 0,
@@ -114,7 +144,22 @@ class _CreateCaseScreenState extends State<CreateCaseScreen> {
                     ),
                   ),
                   SizedBox(height: 20),
-                  buildInput('Case Type', Icons.local_hospital, caseTypeCtrl),
+                  DropdownButtonFormField<dynamic>(
+                    value: selectedCaseType,
+                    items: caseTypes
+                        .map((ct) => DropdownMenuItem(
+                              value: ct,
+                              child: Text(ct['name']),
+                            ))
+                        .toList(),
+                    onChanged: (val) => setState(() => selectedCaseType = val),
+                    decoration: InputDecoration(
+                      labelText: 'Case Type',
+                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
+                      filled: true,
+                      fillColor: Colors.grey[50],
+                    ),
+                  ),
                   SizedBox(height: 16),
                   buildInput('Patient Name', Icons.person, nameCtrl),
                   SizedBox(height: 16),

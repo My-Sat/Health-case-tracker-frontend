@@ -12,32 +12,31 @@ class CaseDetailBottomSheet extends StatelessWidget {
   });
 
   void showConfirmationDialog(BuildContext context, String message, VoidCallback onConfirm) {
-  showDialog(
-    context: context,
-    builder: (ctx) => AlertDialog(
-      title: Text('Please Confirm'),
-      content: Text(message),
-      actions: [
-        TextButton(
-          onPressed: () => Navigator.pop(ctx),
-          child: Text('Cancel'),
-        ),
-        ElevatedButton(
-          style: ElevatedButton.styleFrom(
-            backgroundColor: Colors.red,
-            foregroundColor: Colors.white,
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: Text('Please Confirm'),
+        content: Text(message),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: Text('Cancel'),
           ),
-          onPressed: () {
-            Navigator.pop(ctx);
-            onConfirm();
-          },
-          child: Text('Confirm'),
-        ),
-      ],
-    ),
-  );
-}
-
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.red,
+              foregroundColor: Colors.white,
+            ),
+            onPressed: () {
+              Navigator.pop(ctx);
+              onConfirm();
+            },
+            child: Text('Confirm'),
+          ),
+        ],
+      ),
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -49,6 +48,7 @@ class CaseDetailBottomSheet extends StatelessWidget {
     final formattedTimeline = timeline.isNotEmpty
         ? DateFormat.yMMMMd().add_jm().format(DateTime.parse(timeline))
         : 'N/A';
+    final caseType = (caseData['caseType']['name'] ?? 'UNKNOWN').toString().toUpperCase();
 
     Widget infoBox(String label, String value) {
       return Container(
@@ -76,25 +76,25 @@ class CaseDetailBottomSheet extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-           Align(
-                  alignment: Alignment.topRight,
-                  child: IconButton(
-                    icon: Icon(Icons.close),
-                    onPressed: () => Navigator.pop(context),
-                  ),
+            Align(
+              alignment: Alignment.topRight,
+              child: IconButton(
+                icon: Icon(Icons.close),
+                onPressed: () => Navigator.pop(context),
+              ),
+            ),
+            Center(
+              child: Container(
+                width: 50,
+                height: 5,
+                margin: EdgeInsets.only(bottom: 16),
+                decoration: BoxDecoration(
+                  color: Colors.grey[400],
+                  borderRadius: BorderRadius.circular(10),
                 ),
-                Center(
-                  child: Container(
-                    width: 50,
-                    height: 5,
-                    margin: EdgeInsets.only(bottom: 16),
-                    decoration: BoxDecoration(
-                      color: Colors.grey[400],
-                      borderRadius: BorderRadius.circular(10),
-                    ),
-                  ),
-                ),
-            infoBox('Case Type', caseData['caseType'].toString().toUpperCase()),
+              ),
+            ),
+            infoBox('Case Type', caseType),
             infoBox('Case Status', caseStatus.toUpperCase()),
             if (caseStatus == 'suspected') ...[
               ElevatedButton(
@@ -126,7 +126,7 @@ class CaseDetailBottomSheet extends StatelessWidget {
             infoBox('Facility', caseData['healthFacility']['name']),
             infoBox('Community', location['community']),
             if (location['subDistrict'] != null && location['subDistrict'].toString().trim().isNotEmpty)
-            infoBox('Sub-District', location['subDistrict']),
+              infoBox('Sub-District', location['subDistrict']),
             infoBox('District', location['district']),
             infoBox('Region', location['region']),
             infoBox('Patient Name', patient['name']),
@@ -153,7 +153,6 @@ class CaseDetailBottomSheet extends StatelessWidget {
                     () => onUpdate(caseData['_id'], null, 'Deceased'),
                   );
                 },
-
                 child: Text('Mark as Deceased'),
               ),
             ],
