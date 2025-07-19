@@ -17,6 +17,7 @@ class _CreateCaseScreenState extends State<CreateCaseScreen> {
   final nameCtrl = TextEditingController();
   final ageCtrl = TextEditingController();
   final phoneCtrl = TextEditingController();
+  final communityCtrl = TextEditingController();
 
   List<dynamic> caseTypes = [];
   dynamic selectedCaseType;
@@ -24,6 +25,7 @@ class _CreateCaseScreenState extends State<CreateCaseScreen> {
   String gender = 'male';
   String patientStatus = 'Ongoing treatment';
   bool isSubmitting = false;
+  bool useFacilityCommunity = true;
 
   @override
   void initState() {
@@ -61,6 +63,7 @@ class _CreateCaseScreenState extends State<CreateCaseScreen> {
 
     final body = {
       'caseType': selectedCaseType['_id'],
+      'community': useFacilityCommunity ? null : communityCtrl.text.trim(),
       'patient': {
         'name': nameCtrl.text,
         'age': int.tryParse(ageCtrl.text) ?? 0,
@@ -194,6 +197,15 @@ class _CreateCaseScreenState extends State<CreateCaseScreen> {
                       fillColor: Colors.grey[50],
                     ),
                   ),
+                  SizedBox(height: 16),
+                  SwitchListTile(
+                    value: useFacilityCommunity,
+                    onChanged: (val) => setState(() => useFacilityCommunity = val),
+                    title: Text("Use Facility Community"),
+                    contentPadding: EdgeInsets.zero,
+                  ),
+                  if (!useFacilityCommunity)
+                    buildInput('Community', Icons.location_city, communityCtrl),
                   SizedBox(height: 24),
                   ElevatedButton(
                     onPressed: isSubmitting ? null : submitCase,

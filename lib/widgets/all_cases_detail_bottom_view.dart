@@ -17,6 +17,9 @@ class CaseViewBottomSheet extends StatelessWidget {
         : 'N/A';
 
     final caseType = (caseData['caseType']['name'] ?? 'UNKNOWN').toString().toUpperCase();
+    final community = caseData['community']?.toString().trim().isNotEmpty == true
+    ? caseData['community']
+    : location['community'];
 
     Widget infoBox(String label, String value) {
       return Container(
@@ -66,7 +69,7 @@ class CaseViewBottomSheet extends StatelessWidget {
             infoBox('Case Status', status.toUpperCase()),
             infoBox('Reported On', formattedTimeline),
             infoBox('Facility', caseData['healthFacility']['name']),
-            infoBox('Community', location['community']),
+            infoBox('Community', community),
             if (location['subDistrict'] != null && location['subDistrict'].toString().trim().isNotEmpty)
               infoBox('Sub-District', location['subDistrict']),
             infoBox('District', location['district']),
