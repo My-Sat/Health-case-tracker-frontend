@@ -120,7 +120,7 @@ Widget caseSummaryCard(Map<String, dynamic> data) {
       );
     },
     child: Container(
-      margin: EdgeInsets.symmetric(vertical: 6, horizontal: 4),
+      margin: EdgeInsets.symmetric(vertical: 6, horizontal: 16),
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
         color: Colors.white,
@@ -205,7 +205,7 @@ Widget caseSummaryCard(Map<String, dynamic> data) {
                       : getFilteredCases().isEmpty
                           ? Center(child: Text('No cases match your filter.'))
                           : ListView.builder(
-                              padding: const EdgeInsets.all(16),
+                              padding: const EdgeInsets.symmetric(vertical: 16),
                               itemCount: getFilteredCases().length,
                               itemBuilder: (ctx, i) => caseSummaryCard(getFilteredCases()[i]),
                             ),

@@ -299,7 +299,7 @@ Widget caseSummaryCard(Map<String, dynamic> data) {
                               : getFilteredCases().isEmpty
                                   ? const Center(child: Text('No cases match your filter.'))
                                   : ListView.builder(
-                                      padding: const EdgeInsets.all(16),
+                                      padding: const EdgeInsets.symmetric(vertical: 16),
                                       itemCount: getFilteredCases().length,
                                       itemBuilder: (ctx, i) => caseSummaryCard(getFilteredCases()[i]),
                                     ),
