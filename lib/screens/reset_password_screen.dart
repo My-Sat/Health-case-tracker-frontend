@@ -32,7 +32,7 @@ class _ResetPasswordScreenState extends State<ResetPasswordScreen> {
     }
 
     setState(() => isLoading = true);
-    final url = Uri.parse('https://health-case-tracker-backend.onrender.com/api/users/reset-password');
+    final url = Uri.parse('http://172.20.10.3:5000/api/users/reset-password');
 
     try {
       final res = await http.post(

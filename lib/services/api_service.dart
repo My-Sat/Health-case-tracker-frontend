@@ -3,7 +3,7 @@ import 'package:http/http.dart' as http;
 import '../models/health_facility.dart';
 
 class ApiService {
-  static const String baseUrl = 'https://health-case-tracker-backend.onrender.com/api';
+  static const String baseUrl = 'http://172.20.10.3:5000/api';
 
   static Future<List<String>> fetchRegions() async {
     final res = await http.get(Uri.parse('$baseUrl/facilities/regions'));
@@ -41,4 +41,25 @@ class ApiService {
     throw Exception('Failed to load facilities');
   }
 
+  static Future<List<String>> fetchCommunities({
+  required String region,
+  required String district,
+  String? subDistrict,
+}) async {
+  final params = [
+    'region=$region',
+    'district=$district',
+    if (subDistrict != null) 'subDistrict=$subDistrict'
+  ].join('&');
+
+  final res = await http.get(Uri.parse('$baseUrl/facilities/communities?$params'));
+  if (res.statusCode == 200) {
+    return List<String>.from(jsonDecode(res.body));
+  }
+  throw Exception('Failed to load communities');
 }
+
+
+}
+
+

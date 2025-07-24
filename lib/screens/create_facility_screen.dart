@@ -18,6 +18,7 @@ class CreateFacilityScreen extends StatefulWidget {
 class _CreateFacilityScreenState extends State<CreateFacilityScreen> {
   final nameCtrl = TextEditingController();
   final communityCtrl = TextEditingController();
+  final newCommunityCtrl = TextEditingController();
   final newRegionCtrl = TextEditingController();
   final newDistrictCtrl = TextEditingController();
   final newSubDistrictCtrl = TextEditingController();
@@ -25,22 +26,35 @@ class _CreateFacilityScreenState extends State<CreateFacilityScreen> {
   String? selectedRegion;
   String? selectedDistrict;
   String? selectedSubDistrict;
+  String? selectedCommunity;
+  String typedRegion = '';
+  String typedDistrict = '';
+
 
   List<String> regions = [];
   List<String> districts = [];
   List<String> subDistricts = [];
+  List<String> communities = [];
 
   bool isSubmitting = false;
   bool isAddingRegion = false;
   bool isAddingDistrict = false;
   bool isAddingSubDistrict = false;
+  bool isAddingCommunity = false;
 
-  @override
-  void initState() {
-    super.initState();
-    _loadRegions();
-  }
+@override
+void initState() {
+  super.initState();
+  _loadRegions();
 
+  newRegionCtrl.addListener(() {
+    setState(() => typedRegion = newRegionCtrl.text.trim());
+  });
+
+  newDistrictCtrl.addListener(() {
+    setState(() => typedDistrict = newDistrictCtrl.text.trim());
+  });
+}
   Future<void> _loadRegions() async {
     try {
       regions = await ApiService.fetchRegions();
@@ -51,8 +65,10 @@ class _CreateFacilityScreenState extends State<CreateFacilityScreen> {
   Future<void> _loadDistricts(String region) async {
     districts = [];
     subDistricts = [];
+    communities = [];
     selectedDistrict = null;
     selectedSubDistrict = null;
+    selectedCommunity = null;
 
     try {
       districts = await ApiService.fetchDistricts(region);
@@ -62,7 +78,9 @@ class _CreateFacilityScreenState extends State<CreateFacilityScreen> {
 
   Future<void> _loadSubDistricts(String region, String district) async {
     subDistricts = [];
+    communities = [];
     selectedSubDistrict = null;
+    selectedCommunity = null;
 
     try {
       subDistricts = await ApiService.fetchSubDistricts(region, district);
@@ -70,35 +88,83 @@ class _CreateFacilityScreenState extends State<CreateFacilityScreen> {
     } catch (_) {}
   }
 
-  Future<void> createFacility() async {
-    setState(() => isSubmitting = true);
-    final token = Provider.of<AuthProvider>(context, listen: false).user!.token;
+Future<void> _loadCommunities({
+  required String region,
+  required String district,
+  String? subDistrict,
+}) async {
+  communities = [];
+  selectedCommunity = null;
 
-    final region = isAddingRegion ? newRegionCtrl.text.trim() : selectedRegion;
-    final district = isAddingDistrict ? newDistrictCtrl.text.trim() : selectedDistrict;
-    final subDistrict = isAddingSubDistrict
-        ? newSubDistrictCtrl.text.trim()
-        : selectedSubDistrict?.trim();
+  try {
+    communities = await ApiService.fetchCommunities(
+      region: region,
+      district: district,
+      subDistrict: subDistrict,
+    );
+    setState(() {});
+  } catch (_) {}
+}
 
-    if ([region, district].any((v) => v == null || v.isEmpty)) {
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Region and District are required')));
-      setState(() => isSubmitting = false);
-      return;
+Future<void> createFacility() async {
+  setState(() => isSubmitting = true);
+  final token = Provider.of<AuthProvider>(context, listen: false).user!.token;
+
+  final region = isAddingRegion ? newRegionCtrl.text.trim() : selectedRegion;
+  final district = isAddingDistrict ? newDistrictCtrl.text.trim() : selectedDistrict;
+  final subDistrict = isAddingSubDistrict
+      ? newSubDistrictCtrl.text.trim()
+      : selectedSubDistrict?.trim();
+  final community = isAddingCommunity
+      ? newCommunityCtrl.text.trim()
+      : selectedCommunity;
+
+  if ([region, district, community].any((v) => v == null || v.isEmpty)) {
+    ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Region, District, and Community are required')));
+    setState(() => isSubmitting = false);
+    return;
+  }
+
+  if (isAddingRegion &&
+    region != null &&
+    regions.any((r) => r.toLowerCase() == region.toLowerCase())) {
+    ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Region "$region" already exists')));
+    setState(() => isSubmitting = false);
+    return;
+  }
+
+  if (isAddingDistrict &&
+    district != null &&
+    districts.any((d) => d.toLowerCase() == district.toLowerCase())) {
+    ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('District "$district" already exists')));
+    setState(() => isSubmitting = false);
+    return;
+  }
+
+  if (isAddingCommunity &&
+    community != null &&
+    communities.any((c) => c.toLowerCase() == community.toLowerCase())) {
+    ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Community "$community" already exists')));
+    setState(() => isSubmitting = false);
+    return;
+  }
+
+  final body = {
+    'name': nameCtrl.text.trim(),
+    'location': {
+      'community': community,
+      'region': region,
+      'district': district,
+      if (subDistrict != null && subDistrict.isNotEmpty)
+        'subDistrict': subDistrict,
     }
-
-    final body = {
-      'name': nameCtrl.text.trim(),
-      'location': {
-        'community': communityCtrl.text.trim(),
-        'region': region,
-        'district': district,
-        if (subDistrict != null && subDistrict.isNotEmpty)
-          'subDistrict': subDistrict,
-      }
-    };
-
+  };
     final response = await http.post(
-      Uri.parse('https://health-case-tracker-backend.onrender.com/api/facilities'),
+      Uri.parse('http://172.20.10.3:5000/api/facilities'),
       headers: {
         'Authorization': 'Bearer $token',
         'Content-Type': 'application/json',
@@ -212,8 +278,6 @@ class _CreateFacilityScreenState extends State<CreateFacilityScreen> {
                   SizedBox(height: 20),
                   buildInput('Facility Name', Icons.local_hospital, nameCtrl),
                   SizedBox(height: 16),
-                  buildInput('Community', Icons.location_city, communityCtrl),
-                  SizedBox(height: 16),
 
                   // Region
                   buildToggleRow(
@@ -226,6 +290,7 @@ class _CreateFacilityScreenState extends State<CreateFacilityScreen> {
                         newRegionCtrl.clear();
                         districts = [];
                         subDistricts = [];
+                        communities = [];
                       });
                     },
                   ),
@@ -252,6 +317,7 @@ class _CreateFacilityScreenState extends State<CreateFacilityScreen> {
                         selectedDistrict = null;
                         newDistrictCtrl.clear();
                         subDistricts = [];
+                        communities = [];
                       });
                     },
                   ),
@@ -264,11 +330,18 @@ class _CreateFacilityScreenState extends State<CreateFacilityScreen> {
                           onChanged: (val) {
                             selectedDistrict = val;
                             _loadSubDistricts(selectedRegion!, val!);
+                            if (!isAddingCommunity) {
+                              _loadCommunities(
+                                region: selectedRegion!,
+                                district: val,
+                                subDistrict: selectedSubDistrict,
+                              );
+                            }
                           },
                         ),
                   SizedBox(height: 16),
 
-                  // Sub-District (Optional)
+                  // Sub-District
                   buildToggleRow(
                     label: 'Sub-district (Optional)',
                     isAdding: isAddingSubDistrict,
@@ -288,10 +361,54 @@ class _CreateFacilityScreenState extends State<CreateFacilityScreen> {
                           options: subDistricts,
                           onChanged: (val) {
                             selectedSubDistrict = val;
-                          },
+                            if (!isAddingCommunity) {
+                              _loadCommunities(
+                                region: selectedRegion!,
+                                district: selectedDistrict!,
+                                subDistrict: val,
+                              );
+                            }
+                          }
                         ),
+                  SizedBox(height: 16),
 
-                  SizedBox(height: 24),
+                  // Community
+                  if (
+                    (!isAddingRegion && selectedRegion != null || isAddingRegion && typedRegion.isNotEmpty) &&
+                    (!isAddingDistrict && selectedDistrict != null || isAddingDistrict && typedDistrict.isNotEmpty)
+                  )
+                    ...[
+                      buildToggleRow(
+                        label: 'Community',
+                        isAdding: isAddingCommunity,
+                        onToggle: () {
+                          setState(() {
+                            isAddingCommunity = !isAddingCommunity;
+                            selectedCommunity = null;
+                            newCommunityCtrl.clear();
+                            if (!isAddingCommunity) {
+                              _loadCommunities(
+                                region: selectedRegion!,
+                                district: selectedDistrict!,
+                                subDistrict: selectedSubDistrict,
+                              );
+                            }
+                          });
+                        },
+                      ),
+                      isAddingCommunity
+                          ? buildInput('New Community', Icons.place, newCommunityCtrl)
+                          : buildDropdownField(
+                              label: 'Select Community',
+                              value: selectedCommunity,
+                              options: communities,
+                              onChanged: (val) {
+                                selectedCommunity = val;
+                              },
+                            ),
+                      SizedBox(height: 16),
+                    ],
+
                   ElevatedButton(
                     onPressed: isSubmitting ? null : createFacility,
                     style: ElevatedButton.styleFrom(

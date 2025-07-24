@@ -34,7 +34,7 @@ class _AllCasesScreenState extends State<AllCasesScreen> {
   Future<void> fetchAllCases() async {
     final token = Provider.of<AuthProvider>(context, listen: false).user!.token;
     final response = await http.get(
-      Uri.parse('https://health-case-tracker-backend.onrender.com/api/cases'),
+      Uri.parse('http://172.20.10.3:5000/api/cases'),
       headers: {'Authorization': 'Bearer $token'},
     );
 

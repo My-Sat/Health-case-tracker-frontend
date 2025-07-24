@@ -18,7 +18,7 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
 
   Future<void> sendResetCode() async {
     setState(() => isLoading = true);
-    final url = Uri.parse('https://health-case-tracker-backend.onrender.com/api/users/forgot-password');
+    final url = Uri.parse('http://172.20.10.3:5000/api/users/forgot-password');
 
     try {
       final res = await http.post(

@@ -28,7 +28,7 @@ class _CreateCaseTypeScreenState extends State<CreateCaseTypeScreen> {
     final token = Provider.of<AuthProvider>(context, listen: false).user!.token;
 
     final res = await http.post(
-      Uri.parse('https://health-case-tracker-backend.onrender.com/api/casetypes'),
+      Uri.parse('http://172.20.10.3:5000/api/casetypes'),
       headers: {
         'Authorization': 'Bearer $token',
         'Content-Type': 'application/json',
