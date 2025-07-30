@@ -93,16 +93,48 @@ class _FacilityListScreenState extends State<FacilityListScreen> {
                             onPressed: () async {
                               final updated = await Navigator.push(
                                 context,
-                                MaterialPageRoute(
-                                  builder: (_) => EditFacilityScreen(facility: f),
-                                ),
+                                MaterialPageRoute(builder: (_) => EditFacilityScreen(facility: f)),
                               );
                               if (updated == true) _loadFacilities();
                             },
                           ),
                           IconButton(
-                        icon: Icon(Icons.delete, color: Colors.red),
-                        onPressed: () {
+                            icon: Icon(Icons.archive, color: Colors.orange),
+                            onPressed: () async {
+                              final token = Provider.of<AuthProvider>(context, listen: false).user!.token;
+                              final confirmed = await showDialog(
+                                context: context,
+                                builder: (_) => AlertDialog(
+                                  title: Text('Archive Facility?'),
+                                  content: Text('This will hide "${f.name}" but not delete it.'),
+                                  actions: [
+                                    TextButton(onPressed: () => Navigator.pop(context), child: Text('Cancel')),
+                                    TextButton(
+                                      onPressed: () => Navigator.pop(context, true),
+                                      child: Text('Archive', style: TextStyle(color: Colors.orange)),
+                                    ),
+                                  ],
+                                ),
+                              );
+                              if (confirmed == true) {
+                                final resp = await http.patch(
+                                  Uri.parse('${ApiService.baseUrl}/facilities/${f.id}/archive'),
+                                  headers: {'Authorization': 'Bearer $token'},
+                                );
+                                if (resp.statusCode == 200) {
+                                  _loadFacilities();
+                                  ScaffoldMessenger.of(context)
+                                      .showSnackBar(SnackBar(content: Text('Facility archived')));
+                                } else {
+                                  ScaffoldMessenger.of(context)
+                                      .showSnackBar(SnackBar(content: Text('Archive failed')));
+                                }
+                              }
+                            },
+                          ),
+                          IconButton(
+                            icon: Icon(Icons.delete, color: Colors.red),
+                            onPressed: () {
                           showDialog(
                             context: context,
                             builder: (_) => AlertDialog(

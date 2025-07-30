@@ -14,6 +14,7 @@ import 'all_cases_screen.dart';
 import '../widgets/admin_cases_detail_bottom_view.dart';
 import 'create_case_type_screen.dart';
 import 'facility_list_screen.dart';
+import 'archived_facility_screen.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -226,6 +227,18 @@ Widget caseSummaryCard(Map<String, dynamic> data) {
                 onTap: () {
                   Navigator.pop(context);
                   Navigator.push(context, MaterialPageRoute(builder: (_) => CreateCaseTypeScreen()));
+                },
+              ),
+              ListTile(
+                leading: Icon(Icons.archive_outlined),
+                title: Text('Archived Facilities'),
+                onTap: () async {
+                  Navigator.pop(context);
+                  final changed = await Navigator.push(
+                    context,
+                    MaterialPageRoute(builder: (_) => ArchivedFacilityScreen()),
+                  );
+                  if (changed == true) await fetchCases(); // refresh if unarchived
                 },
               ),
             if (!authIsAdmin(context)) ...[
