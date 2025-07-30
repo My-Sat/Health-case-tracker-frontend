@@ -13,6 +13,7 @@ import 'my_cases_screen.dart';
 import 'all_cases_screen.dart';
 import '../widgets/admin_cases_detail_bottom_view.dart';
 import 'create_case_type_screen.dart';
+import 'facility_list_screen.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -193,13 +194,31 @@ Widget caseSummaryCard(Map<String, dynamic> data) {
               onTap: () => Navigator.pop(context),
             ),
             if (authIsAdmin(context))
-              ListTile(
-                leading: Icon(Icons.add_business),
-                title: Text('Add Facility'),
-                onTap: () {
-                  Navigator.pop(context);
-                  Navigator.push(context, MaterialPageRoute(builder: (_) => CreateFacilityScreen()));
-                },
+             ExpansionTile(
+                leading: Icon(Icons.business),
+                title: Text('Facility'),
+                children: [
+                  ListTile(
+                    leading: Icon(Icons.add_business),
+                    title: Text('Add Facility'),
+                    onTap: () {
+                      Navigator.pop(context);
+                      Navigator.push(context, MaterialPageRoute(builder: (_) => CreateFacilityScreen()));
+                    },
+                  ),
+                  ListTile(
+                    leading: Icon(Icons.list),
+                    title: Text('Facility List'),
+                    onTap: () async {
+                      Navigator.pop(context); // close drawer first
+                      await Navigator.push(
+                        context,
+                        MaterialPageRoute(builder: (_) => FacilityListScreen()),
+                      );
+                      await fetchCases(); // refresh after returning
+                    },
+                  ),
+                ],
               ),
               ListTile(
                 leading: Icon(Icons.add_box),

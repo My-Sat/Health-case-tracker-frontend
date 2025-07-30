@@ -1,0 +1,429 @@
+// ignore_for_file: use_build_context_synchronously
+
+import 'dart:convert';
+import 'package:flutter/material.dart';
+import 'package:http/http.dart' as http;
+import 'package:provider/provider.dart';
+import '../models/health_facility.dart';
+import '../providers/auth_provider.dart';
+import '../services/api_service.dart';
+
+class EditFacilityScreen extends StatefulWidget {
+  final HealthFacility facility;
+
+  const EditFacilityScreen({super.key, required this.facility});
+
+  @override
+  State<EditFacilityScreen> createState() => _EditFacilityScreenState();
+}
+
+class _EditFacilityScreenState extends State<EditFacilityScreen> {
+  final nameCtrl = TextEditingController();
+  final newCommunityCtrl = TextEditingController();
+  final newRegionCtrl = TextEditingController();
+  final newDistrictCtrl = TextEditingController();
+  final newSubDistrictCtrl = TextEditingController();
+
+  String? selectedRegion;
+  String? selectedDistrict;
+  String? selectedSubDistrict;
+  String? selectedCommunity;
+  String typedRegion = '';
+  String typedDistrict = '';
+
+  List<String> regions = [];
+  List<String> districts = [];
+  List<String> subDistricts = [];
+  List<String> communities = [];
+
+  bool isSubmitting = false;
+  bool isAddingRegion = false;
+  bool isAddingDistrict = false;
+  bool isAddingSubDistrict = false;
+  bool isAddingCommunity = false;
+
+  @override
+  void initState() {
+    super.initState();
+    final loc = widget.facility.location!;
+    nameCtrl.text = widget.facility.name;
+    selectedRegion = loc['region'];
+    selectedDistrict = loc['district'];
+    selectedSubDistrict = loc['subDistrict'];
+    selectedCommunity = loc['community'];
+
+    _loadRegions().then((_) {
+      if (selectedRegion != null) _loadDistricts(selectedRegion!);
+      if (selectedRegion != null && selectedDistrict != null) {
+        _loadSubDistricts(selectedRegion!, selectedDistrict!);
+        _loadCommunities(
+          region: selectedRegion!,
+          district: selectedDistrict!,
+          subDistrict: selectedSubDistrict,
+        );
+      }
+    });
+
+    newRegionCtrl.addListener(() {
+      setState(() => typedRegion = newRegionCtrl.text.trim());
+    });
+
+    newDistrictCtrl.addListener(() {
+      setState(() => typedDistrict = newDistrictCtrl.text.trim());
+    });
+  }
+
+  Future<void> _loadRegions() async {
+    try {
+      regions = await ApiService.fetchRegions();
+      setState(() {});
+    } catch (_) {}
+  }
+
+  Future<void> _loadDistricts(String region) async {
+    try {
+      districts = await ApiService.fetchDistricts(region);
+      setState(() {});
+    } catch (_) {}
+  }
+
+  Future<void> _loadSubDistricts(String region, String district) async {
+    try {
+      subDistricts = await ApiService.fetchSubDistricts(region, district);
+      setState(() {});
+    } catch (_) {}
+  }
+
+  Future<void> _loadCommunities({
+    required String region,
+    required String district,
+    String? subDistrict,
+  }) async {
+    try {
+      communities = await ApiService.fetchCommunities(
+        region: region,
+        district: district,
+        subDistrict: subDistrict,
+      );
+      setState(() {});
+    } catch (_) {}
+  }
+
+  Future<void> _updateFacility() async {
+    setState(() => isSubmitting = true);
+    final token = Provider.of<AuthProvider>(context, listen: false).user!.token;
+
+    final region = isAddingRegion ? newRegionCtrl.text.trim() : selectedRegion;
+    final district = isAddingDistrict ? newDistrictCtrl.text.trim() : selectedDistrict;
+    final subDistrict = isAddingSubDistrict
+        ? newSubDistrictCtrl.text.trim()
+        : selectedSubDistrict?.trim();
+    final community = isAddingCommunity
+        ? newCommunityCtrl.text.trim()
+        : selectedCommunity;
+
+    if ([region, district, community].any((v) => v == null || v.isEmpty)) {
+      ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Region, District, and Community are required')));
+      setState(() => isSubmitting = false);
+      return;
+    }
+
+    if (isAddingRegion &&
+      region != null &&
+      regions.any((r) => r.toLowerCase() == region.toLowerCase())) {
+      ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Region "$region" already exists')));
+      setState(() => isSubmitting = false);
+      return;
+    }
+
+    if (isAddingDistrict &&
+      district != null &&
+      districts.any((d) => d.toLowerCase() == district.toLowerCase())) {
+      ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('District "$district" already exists')));
+      setState(() => isSubmitting = false);
+      return;
+    }
+
+    if (isAddingCommunity &&
+      community != null &&
+      communities.any((c) => c.toLowerCase() == community.toLowerCase())) {
+      ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Community "$community" already exists')));
+      setState(() => isSubmitting = false);
+      return;
+    }
+
+    final body = {
+      'name': nameCtrl.text.trim(),
+      'location': {
+        'community': community,
+        'region': region,
+        'district': district,
+        if (subDistrict != null && subDistrict.isNotEmpty)
+          'subDistrict': subDistrict,
+      }
+    };
+
+    final response = await http.put(
+      Uri.parse('${ApiService.baseUrl}/facilities/${widget.facility.id}'),
+      headers: {
+        'Authorization': 'Bearer $token',
+        'Content-Type': 'application/json',
+      },
+      body: jsonEncode(body),
+    );
+
+    setState(() => isSubmitting = false);
+
+    if (response.statusCode == 200) {
+      ScaffoldMessenger.of(context)
+          .showSnackBar(SnackBar(content: Text('Facility updated')));
+      Navigator.pop(context, true);
+    } else {
+      final msg = jsonDecode(response.body)['message'] ?? 'Update failed';
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(msg)));
+    }
+  }
+
+  Widget buildInput(String label, IconData icon, TextEditingController controller) {
+    return TextField(
+      controller: controller,
+      decoration: InputDecoration(
+        labelText: label,
+        prefixIcon: Icon(icon),
+        border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
+        filled: true,
+        fillColor: Colors.grey[50],
+      ),
+    );
+  }
+
+  Widget buildToggleRow({
+    required String label,
+    required bool isAdding,
+    required VoidCallback onToggle,
+  }) {
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      children: [
+        Text(label, style: TextStyle(fontSize: 16, fontWeight: FontWeight.w500)),
+        TextButton(
+          onPressed: onToggle,
+          child: Text(isAdding ? 'Select Existing' : 'Add New'),
+        ),
+      ],
+    );
+  }
+
+  Widget buildDropdownField({
+    required String label,
+    required String? value,
+    required List<String> options,
+    required void Function(String?) onChanged,
+  }) {
+    return DropdownButtonFormField<String>(
+      value: value,
+      items: options.map((v) => DropdownMenuItem(value: v, child: Text(v))).toList(),
+      onChanged: onChanged,
+      decoration: InputDecoration(
+        labelText: label,
+        border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
+        filled: true,
+        fillColor: Colors.grey[50],
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(title: Text('Edit Facility')),
+      body: Container(
+        decoration: BoxDecoration(
+          gradient: LinearGradient(
+            colors: [Colors.teal.shade800, Colors.teal.shade300],
+            begin: Alignment.topCenter,
+            end: Alignment.bottomCenter,
+          ),
+        ),
+        child: Center(
+          child: SingleChildScrollView(
+            padding: EdgeInsets.all(20),
+            child: Container(
+              padding: EdgeInsets.all(24),
+              decoration: BoxDecoration(
+                color: Colors.white.withAlpha((0.95 * 255).toInt()),
+                borderRadius: BorderRadius.circular(16),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black26,
+                    blurRadius: 10,
+                    offset: Offset(0, 4),
+                  ),
+                ],
+              ),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(
+                    'Update Health Facility',
+                    style: TextStyle(
+                      fontSize: 20,
+                      fontWeight: FontWeight.bold,
+                      color: Colors.teal.shade800,
+                    ),
+                  ),
+                  SizedBox(height: 20),
+                  buildInput('Facility Name', Icons.local_hospital, nameCtrl),
+                  SizedBox(height: 16),
+
+                  // Region
+                  buildToggleRow(
+                    label: 'Region',
+                    isAdding: isAddingRegion,
+                    onToggle: () {
+                      setState(() {
+                        isAddingRegion = !isAddingRegion;
+                        selectedRegion = null;
+                        newRegionCtrl.clear();
+                        districts = [];
+                        subDistricts = [];
+                        communities = [];
+                      });
+                    },
+                  ),
+                  isAddingRegion
+                      ? buildInput('New Region', Icons.map, newRegionCtrl)
+                      : buildDropdownField(
+                          label: 'Select Region',
+                          value: selectedRegion,
+                          options: regions,
+                          onChanged: (val) {
+                            selectedRegion = val;
+                            selectedDistrict = null;
+                            _loadDistricts(val!);
+                          },
+                        ),
+                  SizedBox(height: 16),
+
+                  // District
+                  buildToggleRow(
+                    label: 'District',
+                    isAdding: isAddingDistrict,
+                    onToggle: () {
+                      setState(() {
+                        isAddingDistrict = !isAddingDistrict;
+                        selectedDistrict = null;
+                        newDistrictCtrl.clear();
+                        subDistricts = [];
+                        communities = [];
+                      });
+                    },
+                  ),
+                  isAddingDistrict
+                      ? buildInput('New District', Icons.map_outlined, newDistrictCtrl)
+                      : buildDropdownField(
+                          label: 'Select District',
+                          value: selectedDistrict,
+                          options: districts,
+                          onChanged: (val) {
+                            selectedDistrict = val;
+                            selectedSubDistrict = null;
+                            _loadSubDistricts(selectedRegion!, val!);
+                            if (!isAddingCommunity) {
+                              _loadCommunities(
+                                region: selectedRegion!,
+                                district: val,
+                                subDistrict: selectedSubDistrict,
+                              );
+                            }
+                          },
+                        ),
+                  SizedBox(height: 16),
+
+                  // Sub-District
+                  buildToggleRow(
+                    label: 'Sub-district (Optional)',
+                    isAdding: isAddingSubDistrict,
+                    onToggle: () {
+                      setState(() {
+                        isAddingSubDistrict = !isAddingSubDistrict;
+                        selectedSubDistrict = null;
+                        newSubDistrictCtrl.clear();
+                      });
+                    },
+                  ),
+                  isAddingSubDistrict
+                      ? buildInput('New Sub-district', Icons.location_on, newSubDistrictCtrl)
+                      : buildDropdownField(
+                          label: 'Select Sub-district',
+                          value: selectedSubDistrict,
+                          options: subDistricts,
+                          onChanged: (val) {
+                            selectedSubDistrict = val;
+                            if (!isAddingCommunity) {
+                              _loadCommunities(
+                                region: selectedRegion!,
+                                district: selectedDistrict!,
+                                subDistrict: val,
+                              );
+                            }
+                          },
+                        ),
+                  SizedBox(height: 16),
+
+                  // Community
+                  if (
+                    (!isAddingRegion && selectedRegion != null || isAddingRegion && typedRegion.isNotEmpty) &&
+                    (!isAddingDistrict && selectedDistrict != null || isAddingDistrict && typedDistrict.isNotEmpty)
+                  ) ...[
+                    buildToggleRow(
+                      label: 'Community',
+                      isAdding: isAddingCommunity,
+                      onToggle: () {
+                        setState(() {
+                          isAddingCommunity = !isAddingCommunity;
+                          selectedCommunity = null;
+                          newCommunityCtrl.clear();
+                          if (!isAddingCommunity) {
+                            _loadCommunities(
+                              region: selectedRegion!,
+                              district: selectedDistrict!,
+                              subDistrict: selectedSubDistrict,
+                            );
+                          }
+                        });
+                      },
+                    ),
+                    isAddingCommunity
+                        ? buildInput('New Community', Icons.place, newCommunityCtrl)
+                        : buildDropdownField(
+                            label: 'Select Community',
+                            value: selectedCommunity,
+                            options: communities,
+                            onChanged: (val) => selectedCommunity = val,
+                          ),
+                    SizedBox(height: 16),
+                  ],
+
+                  ElevatedButton(
+                    onPressed: isSubmitting ? null : _updateFacility,
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.teal,
+                      foregroundColor: Colors.white,
+                      padding: EdgeInsets.symmetric(horizontal: 50, vertical: 14),
+                    ),
+                    child: Text(isSubmitting ? 'Updating...' : 'Update Facility'),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
