@@ -15,6 +15,8 @@ import '../widgets/admin_cases_detail_bottom_view.dart';
 import 'create_case_type_screen.dart';
 import 'facility_list_screen.dart';
 import 'archived_facility_screen.dart';
+import 'case_type_list_screen.dart';
+import 'archived_case_type_screen.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -189,11 +191,6 @@ Widget caseSummaryCard(Map<String, dynamic> data) {
               decoration: BoxDecoration(color: Colors.teal),
               child: Text('Health Case Tracker', style: TextStyle(color: Colors.white, fontSize: 20)),
             ),
-            ListTile(
-              leading: Icon(Icons.home),
-              title: Text('Cases'),
-              onTap: () => Navigator.pop(context),
-            ),
             if (authIsAdmin(context))
              ExpansionTile(
                 leading: Icon(Icons.business),
@@ -221,26 +218,71 @@ Widget caseSummaryCard(Map<String, dynamic> data) {
                   ),
                 ],
               ),
-              ListTile(
-                leading: Icon(Icons.add_box),
-                title: Text('Add Case Type'),
-                onTap: () {
-                  Navigator.pop(context);
-                  Navigator.push(context, MaterialPageRoute(builder: (_) => CreateCaseTypeScreen()));
-                },
+                ExpansionTile(
+                  leading: Icon(Icons.category),
+                  title: Text('Cases'),
+                  children: [
+                    ListTile(
+                  leading: Icon(Icons.home),
+                  title: Text('Reported Cases'),
+                  onTap: () => Navigator.pop(context),
+                ),
+                    ListTile(
+                      leading: Icon(Icons.add),
+                      title: Text('Add Case Type'),
+                      onTap: () {
+                        Navigator.pop(context);
+                        Navigator.push(context, MaterialPageRoute(builder: (_) => CreateCaseTypeScreen()));
+                      },
+                    ),
+                    ListTile(
+                      leading: Icon(Icons.list),
+                      title: Text('Update Case Type'),
+                      onTap: () async {
+                        Navigator.pop(context);
+                        final updated = await Navigator.push(
+                          context,
+                          MaterialPageRoute(builder: (_) => CaseTypeListScreen()),
+                        );
+                        if (updated == true) {
+                          await fetchCases(); // re-fetch to reflect deletions
+                        }
+                      },
+                    ),
+                  ],
+                ), 
+
+                             ExpansionTile(
+                leading: Icon(Icons.archive),
+                title: Text('Archives'),
+                children: [
+                  ListTile(
+                    leading: Icon(Icons.archive_outlined),
+                    title: Text('Archived Facilities'),
+                    onTap: () async {
+                      Navigator.pop(context);
+                      final changed = await Navigator.push(
+                        context,
+                        MaterialPageRoute(builder: (_) => ArchivedFacilityScreen()),
+                      );
+                      if (changed == true) await fetchCases(); // refresh if unarchived
+                    },
+                  ),
+                  ListTile(
+                    leading: Icon(Icons.archive_outlined),
+                    title: Text('Archived Case Types'),
+                    onTap: () async {
+                      Navigator.pop(context);
+                      final changed = await Navigator.push(
+                        context,
+                        MaterialPageRoute(builder: (_) => ArchivedCaseTypeScreen()),
+                      );
+                      if (changed == true) await fetchCases();
+                    },
+                  ),
+                ],
               ),
-              ListTile(
-                leading: Icon(Icons.archive_outlined),
-                title: Text('Archived Facilities'),
-                onTap: () async {
-                  Navigator.pop(context);
-                  final changed = await Navigator.push(
-                    context,
-                    MaterialPageRoute(builder: (_) => ArchivedFacilityScreen()),
-                  );
-                  if (changed == true) await fetchCases(); // refresh if unarchived
-                },
-              ),
+          
             if (!authIsAdmin(context)) ...[
               ListTile(
                 leading: Icon(Icons.add),
