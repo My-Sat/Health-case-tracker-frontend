@@ -183,6 +183,7 @@ Widget caseSummaryCard(Map<String, dynamic> data) {
       builder: (_) => CaseDetailBottomSheet(
         caseData: data,
         onUpdate: updateStatus,
+        onRefresh: fetchMyCases,
       ),
     ),
     child: AnimatedContainer(

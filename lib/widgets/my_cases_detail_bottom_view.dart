@@ -1,13 +1,16 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
+import '../screens/edit_case_screen.dart';
 
 class CaseDetailBottomSheet extends StatelessWidget {
   final Map<String, dynamic> caseData;
   final Function(String caseId, [String? status, String? patientStatus]) onUpdate;
+  final VoidCallback? onRefresh; // ✅ new optional refresh callback
 
   const CaseDetailBottomSheet({
     required this.caseData,
     required this.onUpdate,
+    this.onRefresh,
     super.key,
   });
 
@@ -51,8 +54,17 @@ class CaseDetailBottomSheet extends StatelessWidget {
             ListTile(
               leading: Icon(Icons.edit, color: Colors.grey),
               title: Text('Edit'),
-              enabled: false,
-              onTap: null,
+              onTap: () {
+                Navigator.pop(ctx); // close edit options bottom sheet
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (_) => EditCaseScreen(caseData: caseData)),
+                ).then((needRefresh) {
+                  if (needRefresh == true) {
+                    onRefresh?.call(); // ✅ safe refresh after edit
+                  }
+                });
+              },
             ),
             ListTile(
               leading: Icon(Icons.archive, color: Colors.grey),
@@ -69,7 +81,7 @@ class CaseDetailBottomSheet extends StatelessWidget {
                   context,
                   'Are you sure you want to permanently delete this case?',
                   () {
-                    Navigator.pop(context); // Closes the bottom sheet
+                    Navigator.pop(context); // Closes main bottom sheet
                     onUpdate(caseData['_id'], 'deleted');
                   },
                 );
