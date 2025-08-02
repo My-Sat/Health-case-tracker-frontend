@@ -38,6 +38,49 @@ class CaseDetailBottomSheet extends StatelessWidget {
     );
   }
 
+  void showEditOptions(BuildContext context) {
+    showModalBottomSheet(
+      context: context,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+      ),
+      builder: (ctx) => Padding(
+        padding: const EdgeInsets.all(16.0),
+        child: Wrap(
+          children: [
+            ListTile(
+              leading: Icon(Icons.edit, color: Colors.grey),
+              title: Text('Edit'),
+              enabled: false,
+              onTap: null,
+            ),
+            ListTile(
+              leading: Icon(Icons.archive, color: Colors.grey),
+              title: Text('Archive'),
+              enabled: false,
+              onTap: null,
+            ),
+            ListTile(
+              leading: Icon(Icons.delete, color: Colors.red),
+              title: Text('Delete Case'),
+              onTap: () {
+                Navigator.pop(ctx);
+                showConfirmationDialog(
+                  context,
+                  'Are you sure you want to permanently delete this case?',
+                  () {
+                    Navigator.pop(context); // Closes the bottom sheet
+                    onUpdate(caseData['_id'], 'deleted');
+                  },
+                );
+              },
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final patient = caseData['patient'];
@@ -50,8 +93,8 @@ class CaseDetailBottomSheet extends StatelessWidget {
         : 'N/A';
     final caseType = (caseData['caseType']['name'] ?? 'UNKNOWN').toString().toUpperCase();
     final community = caseData['community']?.toString().trim().isNotEmpty == true
-    ? caseData['community']
-    : location['community'];
+        ? caseData['community']
+        : location['community'];
 
     Widget infoBox(String label, String value) {
       return Container(
@@ -79,12 +122,20 @@ class CaseDetailBottomSheet extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Align(
-              alignment: Alignment.topRight,
-              child: IconButton(
-                icon: Icon(Icons.close),
-                onPressed: () => Navigator.pop(context),
-              ),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.end,
+              children: [
+                IconButton(
+                  icon: Icon(Icons.edit),
+                  tooltip: 'Edit Options',
+                  onPressed: () => showEditOptions(context),
+                ),
+                IconButton(
+                  icon: Icon(Icons.close),
+                  tooltip: 'Close',
+                  onPressed: () => Navigator.pop(context),
+                ),
+              ],
             ),
             Center(
               child: Container(

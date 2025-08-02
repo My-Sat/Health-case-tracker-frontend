@@ -49,18 +49,15 @@ class _MyCasesScreenState extends State<MyCasesScreen> {
     }
   }
 
-  Future<void> updateStatus(String caseId, [String? status, String? patientStatus]) async {
-    final token = Provider.of<AuthProvider>(context, listen: false).user!.token;
-    final response = await http.put(
-      Uri.parse('http://172.20.10.3:5000/api/cases/$caseId/status'),
+Future<void> updateStatus(String caseId, [String? status, String? patientStatus]) async {
+  final token = Provider.of<AuthProvider>(context, listen: false).user!.token;
+
+  if (status == 'deleted') {
+    final response = await http.delete(
+      Uri.parse('http://172.20.10.3:5000/api/cases/$caseId'),
       headers: {
         'Authorization': 'Bearer $token',
-        'Content-Type': 'application/json',
       },
-      body: jsonEncode({
-        if (status != null) 'status': status,
-        if (patientStatus != null) 'patientStatus': patientStatus,
-      }),
     );
 
     if (response.statusCode == 200) {
@@ -70,29 +67,66 @@ class _MyCasesScreenState extends State<MyCasesScreen> {
         setState(() => recentlyUpdatedCaseId = null);
       });
 
-      final message = status != null
-          ? 'Case successfully marked as ${status.toUpperCase()}'
-          : 'Patient status updated to $patientStatus';
-
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text(message),
-          backgroundColor: Colors.green.shade700,
+          content: const Text('Case deleted successfully'),
+          backgroundColor: Colors.red.shade600,
           behavior: SnackBarBehavior.floating,
-          duration: const Duration(seconds: 2),
         ),
       );
     } else {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: const Text('Failed to update status'),
+          content: const Text('Failed to delete case'),
           backgroundColor: Colors.red.shade600,
           behavior: SnackBarBehavior.floating,
-          duration: const Duration(seconds: 3),
         ),
       );
     }
+
+    return;
   }
+
+  final response = await http.put(
+    Uri.parse('http://172.20.10.3:5000/api/cases/$caseId/status'),
+    headers: {
+      'Authorization': 'Bearer $token',
+      'Content-Type': 'application/json',
+    },
+    body: jsonEncode({
+      if (status != null) 'status': status,
+      if (patientStatus != null) 'patientStatus': patientStatus,
+    }),
+  );
+
+  if (response.statusCode == 200) {
+    setState(() => recentlyUpdatedCaseId = caseId);
+    fetchMyCases();
+    Future.delayed(const Duration(seconds: 6), () {
+      setState(() => recentlyUpdatedCaseId = null);
+    });
+
+    final message = status != null
+        ? 'Case successfully marked as ${status.toUpperCase()}'
+        : 'Patient status updated to $patientStatus';
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(message),
+        backgroundColor: Colors.green.shade700,
+        behavior: SnackBarBehavior.floating,
+      ),
+    );
+  } else {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: const Text('Failed to update status'),
+        backgroundColor: Colors.red.shade600,
+        behavior: SnackBarBehavior.floating,
+      ),
+    );
+  }
+}
 
   List<Map<String, dynamic>> getFilteredCases() {
     return myCases.where((c) {
