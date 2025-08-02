@@ -61,6 +61,8 @@ class CaseDetailBottomSheet extends StatelessWidget {
                   MaterialPageRoute(builder: (_) => EditCaseScreen(caseData: caseData)),
                 ).then((needRefresh) {
                   if (needRefresh == true) {
+                    // ignore: use_build_context_synchronously
+                    Navigator.pop(context);
                     onRefresh?.call(); // ✅ safe refresh after edit
                   }
                 });
@@ -135,19 +137,24 @@ class CaseDetailBottomSheet extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Row(
-              mainAxisAlignment: MainAxisAlignment.end,
-              children: [
-                IconButton(
-                  icon: Icon(Icons.edit),
-                  tooltip: 'Edit Options',
-                  onPressed: () => showEditOptions(context),
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+            TextButton(
+              onPressed: () => showEditOptions(context),
+              child: Text(
+                'EDIT',
+                style: TextStyle(
+                  fontWeight: FontWeight.bold,
+                  color: Colors.teal.shade800,
                 ),
-                IconButton(
-                  icon: Icon(Icons.close),
-                  tooltip: 'Close',
-                  onPressed: () => Navigator.pop(context),
-                ),
-              ],
+              ),
+            ),
+            IconButton(
+              icon: Icon(Icons.close),
+              tooltip: 'Close',
+              onPressed: () => Navigator.pop(context),
+            ),
+            ],
             ),
             Center(
               child: Container(
