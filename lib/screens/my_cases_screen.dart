@@ -10,6 +10,7 @@ import 'all_cases_screen.dart';
 import 'login_screen.dart';
 import 'package:intl/intl.dart';
 import '../widgets/my_cases_detail_bottom_view.dart';
+import 'archived_cases_screen.dart';
 
 class MyCasesScreen extends StatefulWidget {
   const MyCasesScreen({super.key});
@@ -86,6 +87,39 @@ Future<void> updateStatus(String caseId, [String? status, String? patientStatus]
 
     return;
   }
+
+  if (status == 'archived') {
+  final response = await http.patch(
+    Uri.parse('http://172.20.10.3:5000/api/cases/$caseId/archive'),
+    headers: {'Authorization': 'Bearer $token'},
+  );
+
+  if (response.statusCode == 200) {
+    setState(() => recentlyUpdatedCaseId = caseId);
+    fetchMyCases();
+    Future.delayed(const Duration(seconds: 6), () {
+      setState(() => recentlyUpdatedCaseId = null);
+    });
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: const Text('Case archived'),
+        backgroundColor: Colors.orange,
+        behavior: SnackBarBehavior.floating,
+      ),
+    );
+  } else {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: const Text('Failed to archive case'),
+        backgroundColor: Colors.red,
+        behavior: SnackBarBehavior.floating,
+      ),
+    );
+  }
+  return;
+}
+
 
   final response = await http.put(
     Uri.parse('http://172.20.10.3:5000/api/cases/$caseId/status'),
@@ -269,6 +303,17 @@ Widget caseSummaryCard(Map<String, dynamic> data) {
               onTap: () {
                 Navigator.pop(context);
                 Navigator.push(context, MaterialPageRoute(builder: (_) => const AllCasesScreen()));
+              },
+            ),
+            ListTile(
+              leading: const Icon(Icons.archive_outlined),
+              title: const Text('Archived Cases'),
+              onTap: () {
+                Navigator.pop(context);
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (_) => const ArchivedCasesScreen()),
+                ).then((_) => fetchMyCases()); // ✅ Refresh when coming back
               },
             ),
             const Divider(),

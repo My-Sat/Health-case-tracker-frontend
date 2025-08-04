@@ -53,7 +53,7 @@ class CaseDetailBottomSheet extends StatelessWidget {
           children: [
             ListTile(
               leading: Icon(Icons.edit, color: Colors.grey),
-              title: Text('Edit'),
+              title: Text('Edit Case Details'),
               onTap: () {
                 Navigator.pop(ctx); // close edit options bottom sheet
                 Navigator.push(
@@ -69,10 +69,19 @@ class CaseDetailBottomSheet extends StatelessWidget {
               },
             ),
             ListTile(
-              leading: Icon(Icons.archive, color: Colors.grey),
-              title: Text('Archive'),
-              enabled: false,
-              onTap: null,
+              leading: Icon(Icons.archive, color: Colors.orange),
+              title: Text('Archive Case'),
+              onTap: () {
+                Navigator.pop(ctx);
+                showConfirmationDialog(
+                  context,
+                  'Are you sure you want to archive this case?',
+                  () {
+                    Navigator.pop(context); // Close bottom sheet
+                    onUpdate(caseData['_id'], 'archived');
+                  },
+                );
+              },
             ),
             ListTile(
               leading: Icon(Icons.delete, color: Colors.red),
