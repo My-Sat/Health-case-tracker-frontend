@@ -44,7 +44,7 @@ class _ArchivedCaseTypeScreenState extends State<ArchivedCaseTypeScreen> {
     } catch (_) {
       setState(() => loading = false);
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Failed to load archived case types')),
+        const SnackBar(content: Text('Failed to load archived case types')),
       );
     }
   }
@@ -57,17 +57,48 @@ class _ArchivedCaseTypeScreenState extends State<ArchivedCaseTypeScreen> {
     );
     if (res.statusCode == 200) {
       await _loadArchivedTypes();
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Case type unarchived')));
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Case type unarchived')),
+      );
       Navigator.pop(context, true);
     } else {
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Unarchive failed')));
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Unarchive failed')),
+      );
     }
+  }
+
+  Widget typeCard(CaseType type) {
+    return Container(
+      margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        // ignore: deprecated_member_use
+        color: Colors.white.withOpacity(0.95),
+        border: Border.all(color: Colors.grey.shade300),
+        borderRadius: BorderRadius.circular(12),
+        boxShadow: [
+          BoxShadow(color: Colors.grey.shade200, blurRadius: 4, offset: const Offset(2, 2)),
+        ],
+      ),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          Expanded(
+            child: Text(type.name, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+          ),
+          IconButton(
+            icon: const Icon(Icons.restore, color: Colors.green),
+            onPressed: () => _unarchiveType(type.id),
+          ),
+        ],
+      ),
+    );
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: Center(child: Text('Archived Case Types'))),
       body: Container(
         decoration: BoxDecoration(
           gradient: LinearGradient(
@@ -76,40 +107,37 @@ class _ArchivedCaseTypeScreenState extends State<ArchivedCaseTypeScreen> {
             end: Alignment.bottomCenter,
           ),
         ),
-        child: loading
-            ? Center(child: CircularProgressIndicator())
-            : archived.isEmpty
-                ? Center(child: Text('No archived case types', style: TextStyle(color: Colors.white)))
-                : SafeArea(
-                    child: Padding(
-                      padding: const EdgeInsets.only(top: 8),
-                      child: Container(
-                        margin: EdgeInsets.all(12),
-                        padding: EdgeInsets.all(16),
-                        decoration: BoxDecoration(
-                          // ignore: deprecated_member_use
-                          color: Colors.white.withOpacity(0.95),
-                          borderRadius: BorderRadius.circular(16),
-                          boxShadow: [BoxShadow(color: Colors.black26, blurRadius: 10)],
-                        ),
-                        child: ListView.separated(
-                          itemCount: archived.length,
-                          separatorBuilder: (_, __) => Divider(),
-                          itemBuilder: (ctx, i) {
-                            final t = archived[i];
-                            return ListTile(
-                              contentPadding: EdgeInsets.symmetric(vertical: 6, horizontal: 8),
-                              title: Text(t.name, style: TextStyle(fontWeight: FontWeight.bold)),
-                              trailing: IconButton(
-                                icon: Icon(Icons.restore, color: Colors.green),
-                                onPressed: () => _unarchiveType(t.id),
-                              ),
-                            );
-                          },
-                        ),
-                      ),
-                    ),
+        child: SafeArea(
+          child: Column(
+            children: [
+              const SizedBox(height: 16),
+              const Center(
+                child: Text(
+                  'Archived Case Types',
+                  style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold, color: Colors.white),
+                ),
+              ),
+              const SizedBox(height: 16),
+              Expanded(
+                child: Container(
+                  decoration: BoxDecoration(
+                    color: Colors.white.withAlpha((0.95 * 255).toInt()),
+                    borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
                   ),
+                  child: loading
+                      ? const Center(child: CircularProgressIndicator())
+                      : archived.isEmpty
+                          ? const Center(child: Text('No archived case types'))
+                          : ListView.builder(
+                              padding: const EdgeInsets.symmetric(vertical: 16),
+                              itemCount: archived.length,
+                              itemBuilder: (ctx, i) => typeCard(archived[i]),
+                            ),
+                ),
+              ),
+            ],
+          ),
+        ),
       ),
     );
   }

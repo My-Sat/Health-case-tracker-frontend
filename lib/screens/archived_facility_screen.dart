@@ -46,7 +46,7 @@ class _ArchivedFacilityScreenState extends State<ArchivedFacilityScreen> {
     } catch (_) {
       setState(() => loading = false);
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Failed to load archived facilities')),
+        const SnackBar(content: Text('Failed to load archived facilities')),
       );
     }
   }
@@ -64,22 +64,58 @@ class _ArchivedFacilityScreenState extends State<ArchivedFacilityScreen> {
       );
       if (res.statusCode == 200) {
         await _loadArchivedFacilities();
-        ScaffoldMessenger.of(context)
-            .showSnackBar(SnackBar(content: Text('Facility unarchived')));
-        Navigator.pop(context, true);
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Facility unarchived')),
+        );
+        Navigator.pop(context, true); // Optional: notify parent to refresh
       } else {
         throw Exception();
       }
     } catch (_) {
-      ScaffoldMessenger.of(context)
-          .showSnackBar(SnackBar(content: Text('Unarchive failed')));
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Unarchive failed')),
+      );
     }
+  }
+
+  Widget facilityCard(HealthFacility f) {
+    final location = f.location;
+    final displayLocation = location?['community'] ?? 'Unknown';
+
+    return Container(
+      margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: Colors.white.withOpacity(0.95),
+        border: Border.all(color: Colors.grey.shade300),
+        borderRadius: BorderRadius.circular(12),
+        boxShadow: [
+          BoxShadow(color: Colors.grey.shade200, blurRadius: 4, offset: const Offset(2, 2)),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(f.name, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+          const SizedBox(height: 4),
+          Text('Community: $displayLocation'),
+          const SizedBox(height: 4),
+          Align(
+            alignment: Alignment.centerRight,
+            child: TextButton.icon(
+              icon: const Icon(Icons.restore, color: Colors.green),
+              label: const Text('Unarchive', style: TextStyle(color: Colors.green)),
+              onPressed: () => _unarchiveFacility(f.id),
+            ),
+          ),
+        ],
+      ),
+    );
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: Center(child: Text('Archived Facilities'))),
       body: Container(
         decoration: BoxDecoration(
           gradient: LinearGradient(
@@ -88,40 +124,37 @@ class _ArchivedFacilityScreenState extends State<ArchivedFacilityScreen> {
             end: Alignment.bottomCenter,
           ),
         ),
-        child: loading
-            ? Center(child: CircularProgressIndicator())
-            : archived.isEmpty
-                ? Center(child: Text('No archived facilities', style: TextStyle(color: Colors.white)))
-                : SafeArea(
-                    child: Padding(
-                      padding: const EdgeInsets.only(top: 8),
-                      child: Container(
-                        margin: EdgeInsets.all(12),
-                        padding: EdgeInsets.all(16),
-                        decoration: BoxDecoration(
-                          color: Colors.white.withOpacity(0.95),
-                          borderRadius: BorderRadius.circular(16),
-                          boxShadow: [BoxShadow(color: Colors.black26, blurRadius: 10)],
-                        ),
-                        child: ListView.separated(
-                          itemCount: archived.length,
-                          separatorBuilder: (_, __) => Divider(),
-                          itemBuilder: (ctx, i) {
-                            final f = archived[i];
-                            return ListTile(
-                              contentPadding: EdgeInsets.symmetric(vertical: 6, horizontal: 8),
-                              title: Text(f.name, style: TextStyle(fontWeight: FontWeight.bold)),
-                              subtitle: Text(f.location?['community'] ?? 'Unknown'),
-                              trailing: IconButton(
-                                icon: Icon(Icons.restore, color: Colors.green),
-                                onPressed: () => _unarchiveFacility(f.id),
-                              ),
-                            );
-                          },
-                        ),
-                      ),
-                    ),
+        child: SafeArea(
+          child: Column(
+            children: [
+              const SizedBox(height: 16),
+              const Center(
+                child: Text(
+                  'Archived Facilities',
+                  style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold, color: Colors.white),
+                ),
+              ),
+              const SizedBox(height: 16),
+              Expanded(
+                child: Container(
+                  decoration: BoxDecoration(
+                    color: Colors.white.withAlpha((0.95 * 255).toInt()),
+                    borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
                   ),
+                  child: loading
+                      ? const Center(child: CircularProgressIndicator())
+                      : archived.isEmpty
+                          ? const Center(child: Text('No archived facilities'))
+                          : ListView.builder(
+                              padding: const EdgeInsets.symmetric(vertical: 16),
+                              itemCount: archived.length,
+                              itemBuilder: (ctx, i) => facilityCard(archived[i]),
+                            ),
+                ),
+              ),
+            ],
+          ),
+        ),
       ),
     );
   }
