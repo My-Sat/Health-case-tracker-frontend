@@ -67,7 +67,7 @@ class _ArchivedFacilityScreenState extends State<ArchivedFacilityScreen> {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('Facility unarchived')),
         );
-        Navigator.pop(context, true); // Optional: notify parent to refresh
+        Navigator.pop(context, true);
       } else {
         throw Exception();
       }
@@ -79,8 +79,13 @@ class _ArchivedFacilityScreenState extends State<ArchivedFacilityScreen> {
   }
 
   Widget facilityCard(HealthFacility f) {
-    final location = f.location;
-    final displayLocation = location?['community'] ?? 'Unknown';
+    final loc = f.location;
+    final locationDetails = [
+      'Community: ${loc.community}',
+      'Sub-District: ${loc.subDistrict ?? "N/A"}',
+      'District: ${loc.district}',
+      'Region: ${loc.region}',
+    ].join('\n');
 
     return Container(
       margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
@@ -98,7 +103,7 @@ class _ArchivedFacilityScreenState extends State<ArchivedFacilityScreen> {
         children: [
           Text(f.name, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
           const SizedBox(height: 4),
-          Text('Community: $displayLocation'),
+          Text(locationDetails, style: const TextStyle(fontSize: 14, height: 1.4)),
           const SizedBox(height: 4),
           Align(
             alignment: Alignment.centerRight,

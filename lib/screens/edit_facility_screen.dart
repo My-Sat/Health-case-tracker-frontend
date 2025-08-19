@@ -45,12 +45,11 @@ class _EditFacilityScreenState extends State<EditFacilityScreen> {
   @override
   void initState() {
     super.initState();
-    final loc = widget.facility.location!;
-    nameCtrl.text = widget.facility.name;
-    selectedRegion = loc['region'];
-    selectedDistrict = loc['district'];
-    selectedSubDistrict = loc['subDistrict'];
-    selectedCommunity = loc['community'];
+    final loc = widget.facility.location;
+    selectedRegion = loc.region;
+    selectedDistrict = loc.district;
+    selectedSubDistrict = loc.subDistrict;
+    selectedCommunity = loc.community;
 
     _loadRegions().then((_) {
       if (selectedRegion != null) _loadDistricts(selectedRegion!);
@@ -159,9 +158,9 @@ class _EditFacilityScreenState extends State<EditFacilityScreen> {
     final body = {
       'name': nameCtrl.text.trim(),
       'location': {
-        'community': community,
         'region': region,
         'district': district,
+        'community': community,
         if (subDistrict != null && subDistrict.isNotEmpty)
           'subDistrict': subDistrict,
       }

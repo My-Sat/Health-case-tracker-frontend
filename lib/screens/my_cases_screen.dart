@@ -183,15 +183,50 @@ Future<void> updateStatus(String caseId, [String? status, String? patientStatus]
   }
 
 Widget caseSummaryCard(Map<String, dynamic> data) {
-  final patient = data['patient'];
-  final caseType = (data['caseType']['name'] ?? 'UNKNOWN').toString().toUpperCase();
-  final caseStatus = data['status'];
-  final timeline = data['timeline'] ?? '';
+  String nameOf(dynamic v) {
+    if (v == null) return 'N/A';
+    if (v is Map) return (v['name'] ?? v['community']?['name'] ?? v['district']?['name'] ?? v['region']?['name'] ?? 'N/A').toString();
+    return v.toString();
+  }
+
+  final patient = data['patient'] ?? {};
+  final ct = data['caseType'];
+  final caseType = (ct is Map ? (ct['name'] ?? 'UNKNOWN') : 'UNKNOWN').toString().toUpperCase();
+
+  final caseStatus = (data['status'] ?? 'unknown').toString();
+  final timeline = (data['timeline'] ?? '').toString();
   final formattedTimeline = timeline.isNotEmpty
-      ? DateFormat.yMMMd().format(DateTime.parse(timeline))
+      ? DateFormat.yMMMd().format(DateTime.tryParse(timeline) ?? DateTime.now())
       : 'N/A';
-  final location = data['healthFacility']['location'];
-  final displayLocation = location['community'] ?? 'N/A';
+
+  // healthFacility can be a string id or a populated map
+  final hf = data['healthFacility'];
+  Map<String, dynamic>? location;
+  if (hf is Map) {
+    if (hf['location'] is Map) {
+      location = Map<String, dynamic>.from(hf['location']);
+    } else {
+      // synthesize from top-level fields if available
+      location = {
+        'region': hf['region'],
+        'district': hf['district'],
+        'subDistrict': hf['subDistrict'],
+        'community': hf['community'],
+      };
+    }
+  }
+
+  // Prefer patient community if set (case when patient is outside facility community)
+  String displayLocation = 'N/A';
+  final caseCommunity = data['community'];
+  if (caseCommunity != null) {
+    displayLocation = nameOf(caseCommunity);
+  } else if (location != null) {
+    displayLocation = nameOf(location['community']);
+  } else if (hf is Map) {
+    displayLocation = nameOf(hf['community']);
+  }
+
   final isRecently = data['_id'] == recentlyUpdatedCaseId;
 
   Color statusColor = Colors.grey;
@@ -257,14 +292,20 @@ Widget caseSummaryCard(Map<String, dynamic> data) {
             text: 'Reported: ',
             style: TextStyle(fontWeight: FontWeight.w600, color: Colors.grey[700]),
             children: [
-              TextSpan(text: '$formattedTimeline · $displayLocation', style: const TextStyle(fontWeight: FontWeight.normal)),
+              TextSpan(
+                text: '$formattedTimeline · $displayLocation',
+                style: const TextStyle(fontWeight: FontWeight.normal),
+              ),
             ],
           )),
           Text.rich(TextSpan(
             text: 'Person: ',
             style: TextStyle(fontWeight: FontWeight.w600, color: Colors.grey[700]),
             children: [
-              TextSpan(text: '${patient['name']} · ${patient['gender']}, ${patient['age']}yrs'),
+              TextSpan(
+                text:
+                    '${(patient['name'] ?? 'Unknown')} · ${(patient['gender'] ?? 'n/a')}, ${(patient['age'] ?? 'n/a')}yrs',
+              ),
             ],
           )),
         ],

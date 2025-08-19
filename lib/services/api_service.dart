@@ -6,20 +6,31 @@ class ApiService {
   static const String baseUrl = 'http://172.20.10.3:5000/api';
 
   static Future<List<String>> fetchRegions() async {
-    final res = await http.get(Uri.parse('$baseUrl/facilities/regions'));
-    if (res.statusCode == 200) return List<String>.from(jsonDecode(res.body));
+    final uri = Uri.parse('$baseUrl/facilities/regions');
+    final res = await http.get(uri);
+    if (res.statusCode == 200) {
+      return List<String>.from(jsonDecode(res.body));
+    }
     throw Exception('Failed to load regions');
   }
 
-  static Future<List<String>> fetchDistricts(String region) async {
-    final res = await http.get(Uri.parse('$baseUrl/facilities/districts?region=$region'));
-    if (res.statusCode == 200) return List<String>.from(jsonDecode(res.body));
+  static Future<List<String>> fetchDistricts(String regionName) async {
+    final uri = Uri.parse('$baseUrl/facilities/districts')
+        .replace(queryParameters: {'region': regionName});
+    final res = await http.get(uri);
+    if (res.statusCode == 200) {
+      return List<String>.from(jsonDecode(res.body));
+    }
     throw Exception('Failed to load districts');
   }
 
   static Future<List<String>> fetchSubDistricts(String region, String district) async {
-    final res = await http.get(Uri.parse('$baseUrl/facilities/subDistricts?region=$region&district=$district'));
-    if (res.statusCode == 200) return List<String>.from(jsonDecode(res.body));
+    final uri = Uri.parse('$baseUrl/facilities/subDistricts')
+        .replace(queryParameters: {'region': region, 'district': district});
+    final res = await http.get(uri);
+    if (res.statusCode == 200) {
+      return List<String>.from(jsonDecode(res.body));
+    }
     throw Exception('Failed to load sub-districts');
   }
 
@@ -28,12 +39,12 @@ class ApiService {
     String? district,
     String? subDistrict,
   }) async {
-    final params = [
-      'region=$region',
-      if (district != null) 'district=$district',
-      if (subDistrict != null) 'subDistrict=$subDistrict'
-    ].join('&');
-    final res = await http.get(Uri.parse('$baseUrl/facilities/under?$params'));
+    final qp = <String, String>{'region': region};
+    if (district != null) qp['district'] = district;
+    if (subDistrict != null) qp['subDistrict'] = subDistrict;
+
+    final uri = Uri.parse('$baseUrl/facilities/under').replace(queryParameters: qp);
+    final res = await http.get(uri);
     if (res.statusCode == 200) {
       final data = jsonDecode(res.body) as List;
       return data.map((j) => HealthFacility.fromJson(j)).toList();
@@ -42,24 +53,34 @@ class ApiService {
   }
 
   static Future<List<String>> fetchCommunities({
-  required String region,
-  required String district,
-  String? subDistrict,
-}) async {
-  final params = [
-    'region=$region',
-    'district=$district',
-    if (subDistrict != null) 'subDistrict=$subDistrict'
-  ].join('&');
-
-  final res = await http.get(Uri.parse('$baseUrl/facilities/communities?$params'));
-  if (res.statusCode == 200) {
-    return List<String>.from(jsonDecode(res.body));
+    required String region,
+    required String district,
+    String? subDistrict,
+  }) async {
+    final qp = <String, String>{
+      'region': region,
+      'district': district,
+      if (subDistrict != null) 'subDistrict': subDistrict,
+    };
+    final uri = Uri.parse('$baseUrl/facilities/communities').replace(queryParameters: qp);
+    final res = await http.get(uri);
+    if (res.statusCode == 200) {
+      return List<String>.from(jsonDecode(res.body));
+    }
+    throw Exception('Failed to load communities');
   }
-  throw Exception('Failed to load communities');
+
+  // NEW: get fully-populated facility by id (names, not ids)
+  static Future<HealthFacility> fetchFacilityById({
+    required String id,
+    required String token,
+  }) async {
+    final uri = Uri.parse('$baseUrl/facilities/by-id/$id');
+    final res = await http.get(uri, headers: {'Authorization': 'Bearer $token'});
+    if (res.statusCode == 200) {
+      final data = jsonDecode(res.body) as Map<String, dynamic>;
+      return HealthFacility.fromJson(data);
+    }
+    throw Exception('Failed to load facility');
+  }
 }
-
-
-}
-
-

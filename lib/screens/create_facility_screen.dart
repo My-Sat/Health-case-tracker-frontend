@@ -153,15 +153,19 @@ Future<void> createFacility() async {
     return;
   }
 
+  final Map<String, dynamic> locationPayload = {
+    'community': community,
+    'region': region,
+    'district': district,
+  };
+
+  if (subDistrict != null && subDistrict.isNotEmpty) {
+    locationPayload['subDistrict'] = subDistrict;
+  }
+
   final body = {
     'name': nameCtrl.text.trim(),
-    'location': {
-      'community': community,
-      'region': region,
-      'district': district,
-      if (subDistrict != null && subDistrict.isNotEmpty)
-        'subDistrict': subDistrict,
-    }
+    'location': locationPayload,
   };
     final response = await http.post(
       Uri.parse('http://172.20.10.3:5000/api/facilities'),

@@ -136,7 +136,7 @@ class _FacilityListScreenState extends State<FacilityListScreen> {
                             return ListTile(
                               contentPadding: EdgeInsets.symmetric(vertical: 6, horizontal: 8),
                               title: Text(f.name, style: TextStyle(fontWeight: FontWeight.bold)),
-                              subtitle: Text(f.location?['community'] ?? ''),
+                              subtitle: Text(f.location.community),
                               trailing: Wrap(
                                 spacing: 4,
                                 children: [
