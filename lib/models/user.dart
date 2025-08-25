@@ -1,6 +1,5 @@
 // lib/models/user.dart
 
-import 'package:flutter/foundation.dart';
 import 'health_facility.dart'; // adjust path if your file is elsewhere
 
 class User {
