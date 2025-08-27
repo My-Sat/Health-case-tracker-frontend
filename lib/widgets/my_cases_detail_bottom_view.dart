@@ -84,21 +84,6 @@ class CaseDetailBottomSheet extends StatelessWidget {
                 );
               },
             ),
-            ListTile(
-              leading: const Icon(Icons.delete, color: Colors.red),
-              title: const Text('Delete Case'),
-              onTap: () {
-                Navigator.pop(ctx);
-                showConfirmationDialog(
-                  context,
-                  'Are you sure you want to permanently delete this case?',
-                  () {
-                    Navigator.pop(context); // close main bottom sheet
-                    onUpdate(caseData['_id'], 'deleted');
-                  },
-                );
-              },
-            ),
           ],
         ),
       ),

@@ -46,24 +46,6 @@ class _FacilityListScreenState extends State<FacilityListScreen> {
     }
   }
 
-  Future<void> _deleteFacility(String id) async {
-    final token = Provider.of<AuthProvider>(context, listen: false).user!.token;
-    try {
-      final res = await http.delete(
-        Uri.parse('${ApiService.baseUrl}/facilities/$id'),
-        headers: {'Authorization': 'Bearer $token'},
-      );
-      if (res.statusCode == 200) {
-        setState(() => facilities.removeWhere((f) => f.id == id));
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Deleted facility')));
-      } else {
-        throw Exception();
-      }
-    } catch (_) {
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Delete failed')));
-    }
-  }
-
   Future<void> _archiveFacility(String id) async {
     final token = Provider.of<AuthProvider>(context, listen: false).user!.token;
     final confirmed = await showDialog(
@@ -155,28 +137,6 @@ class _FacilityListScreenState extends State<FacilityListScreen> {
                                   IconButton(
                                     icon: Icon(Icons.archive, color: Colors.orange),
                                     onPressed: () => _archiveFacility(f.id),
-                                  ),
-                                  IconButton(
-                                    icon: Icon(Icons.delete, color: Colors.red),
-                                    onPressed: () {
-                                      showDialog(
-                                        context: context,
-                                        builder: (_) => AlertDialog(
-                                          title: Text('Delete?'),
-                                          content: Text('Delete facility "${f.name}" and all related cases?'),
-                                          actions: [
-                                            TextButton(onPressed: () => Navigator.pop(context), child: Text('Cancel')),
-                                            TextButton(
-                                              onPressed: () {
-                                                Navigator.pop(context);
-                                                _deleteFacility(f.id);
-                                              },
-                                              child: Text('Delete', style: TextStyle(color: Colors.red)),
-                                            ),
-                                          ],
-                                        ),
-                                      );
-                                    },
                                   ),
                                 ],
                               ),
