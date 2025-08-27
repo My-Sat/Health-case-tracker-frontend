@@ -28,7 +28,7 @@ class _ArchivedCasesScreenState extends State<ArchivedCasesScreen> {
     final token = Provider.of<AuthProvider>(context, listen: false).user!.token;
 
     final response = await http.get(
-      Uri.parse('http://172.20.10.3:5000/api/cases/archived'),
+      Uri.parse('https://health-case-tracker-backend-o82a.onrender.com/api/cases/archived'),
       headers: {'Authorization': 'Bearer $token'},
     );
 
@@ -48,7 +48,7 @@ class _ArchivedCasesScreenState extends State<ArchivedCasesScreen> {
     final token = Provider.of<AuthProvider>(context, listen: false).user!.token;
 
     final response = await http.patch(
-      Uri.parse('http://172.20.10.3:5000/api/cases/$caseId/unarchive'),
+      Uri.parse('https://health-case-tracker-backend-o82a.onrender.com/api/cases/$caseId/unarchive'),
       headers: {'Authorization': 'Bearer $token'},
     );
 

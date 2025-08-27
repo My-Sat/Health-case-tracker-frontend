@@ -6,7 +6,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 class AuthProvider with ChangeNotifier {
   User? _user;
-  final String _baseUrl = 'http://172.20.10.3:5000/api';
+  final String _baseUrl = 'https://health-case-tracker-backend-o82a.onrender.com/api';
 
   User? get user => _user;
   bool get isLoggedIn => _user != null;

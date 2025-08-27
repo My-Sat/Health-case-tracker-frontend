@@ -3,7 +3,7 @@ import 'package:http/http.dart' as http;
 import '../models/health_facility.dart';
 
 class ApiService {
-  static const String baseUrl = 'http://172.20.10.3:5000/api';
+  static const String baseUrl = 'https://health-case-tracker-backend-o82a.onrender.com/api';
 
   static Future<List<String>> fetchRegions() async {
     final uri = Uri.parse('$baseUrl/facilities/regions');

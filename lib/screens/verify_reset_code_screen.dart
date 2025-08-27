@@ -19,7 +19,7 @@ class _VerifyResetCodeScreenState extends State<VerifyResetCodeScreen> {
 
   Future<void> verifyCode() async {
     setState(() => isLoading = true);
-    final url = Uri.parse('http://172.20.10.3:5000/api/users/verify-reset-code');
+    final url = Uri.parse('https://health-case-tracker-backend-o82a.onrender.com/api/users/verify-reset-code');
 
     try {
       final res = await http.post(
