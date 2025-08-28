@@ -197,7 +197,7 @@ class _CreateCaseScreenState extends State<CreateCaseScreen> {
         final list = jsonDecode(res.body);
         setState(() {
           caseTypes = List<dynamic>.from(list);
-          selectedCaseType = caseTypes.isNotEmpty ? caseTypes.first : null;
+          selectedCaseType = null;
         });
       }
     } catch (_) {}
@@ -549,6 +549,7 @@ class _CreateCaseScreenState extends State<CreateCaseScreen> {
                   // case type
                   DropdownButtonFormField<dynamic>(
                     value: selectedCaseType,
+                    hint: const Text("Select a case type"),
                     items: caseTypes
                         .map((ct) => DropdownMenuItem(
                               value: ct,
