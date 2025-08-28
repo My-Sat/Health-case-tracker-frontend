@@ -62,42 +62,6 @@ class _CaseTypeListScreenState extends State<CaseTypeListScreen> {
     }
   }
 
-  Future<void> _deleteType(int index) async {
-    final token = Provider.of<AuthProvider>(context, listen: false).user!.token;
-    final type = types[index];
-    final confirmed = await showDialog(
-      context: context,
-      builder: (_) => AlertDialog(
-        title: Text('Delete Case Type?'),
-        content: Text('This will delete "${type.name}" and all associated cases.'),
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(context), child: Text('Cancel')),
-          TextButton(
-            onPressed: () => Navigator.pop(context, true),
-            child: Text('Delete', style: TextStyle(color: Colors.red)),
-          ),
-        ],
-      ),
-    );
-    if (confirmed != true) return;
-
-    try {
-      final res = await http.delete(
-        Uri.parse('${ApiService.baseUrl}/casetypes/${type.id}'),
-        headers: {'Authorization': 'Bearer $token'},
-      );
-      if (res.statusCode == 200) {
-        setState(() => types.removeAt(index));
-        Navigator.pop(context, true);
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Deleted case type')));
-      } else {
-        throw Exception();
-      }
-    } catch (_) {
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Delete failed')));
-    }
-  }
-
   Future<void> _editType(int index) async {
     final token = Provider.of<AuthProvider>(context, listen: false).user!.token;
     final current = types[index];
@@ -214,10 +178,6 @@ class _CaseTypeListScreenState extends State<CaseTypeListScreen> {
                                 IconButton(
                                   icon: Icon(Icons.archive, color: Colors.orange),
                                   onPressed: () => _archiveType(i),
-                                ),
-                                IconButton(
-                                  icon: Icon(Icons.delete, color: Colors.red),
-                                  onPressed: () => _deleteType(i),
                                 ),
                               ],
                             ),

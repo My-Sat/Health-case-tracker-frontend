@@ -32,20 +32,46 @@ class _AllCasesScreenState extends State<AllCasesScreen> {
   }
 
   Future<void> fetchAllCases() async {
+    setState(() => isLoading = true);
     final token = Provider.of<AuthProvider>(context, listen: false).user!.token;
-    final response = await http.get(
-      Uri.parse('https://health-case-tracker-backend-o82a.onrender.com/api/cases'),
-      headers: {'Authorization': 'Bearer $token'},
-    );
+    final base = 'https://health-case-tracker-backend-o82a.onrender.com/api/cases';
 
-    if (response.statusCode == 200) {
-      allCases = jsonDecode(response.body);
-      _populateFilters(); // Dynamically gather all filter categories
+    // Prefer the dedicated endpoint that returns ALL cases to logged-in users
+    final primaryUri = Uri.parse('$base/all-officers');
+    final primaryResp = await http.get(primaryUri, headers: {'Authorization': 'Bearer $token'});
+
+    if (primaryResp.statusCode == 200) {
+      allCases = jsonDecode(primaryResp.body);
+      _populateFilters();
       setState(() => isLoading = false);
-    } else {
-      setState(() => isLoading = false);
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Failed to load cases')));
+      return;
     }
+
+    // Backwards compatibility: try the older endpoints
+    // 1) try the root /api/cases (may return admin-only or officer-specific depending on server)
+    final rootResp = await http.get(Uri.parse(base), headers: {'Authorization': 'Bearer $token'});
+    if (rootResp.statusCode == 200) {
+      allCases = jsonDecode(rootResp.body);
+      _populateFilters();
+      setState(() => isLoading = false);
+      return;
+    }
+
+    // 2) finally try /api/cases/my-cases (officer-specific)
+    final myResp = await http.get(Uri.parse('$base/my-cases'), headers: {'Authorization': 'Bearer $token'});
+    if (myResp.statusCode == 200) {
+      allCases = jsonDecode(myResp.body);
+      _populateFilters();
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Showing your cases — server does not expose global cases endpoint.')),
+      );
+      setState(() => isLoading = false);
+      return;
+    }
+
+    // If none worked
+    setState(() => isLoading = false);
+    ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Failed to load cases')));
   }
 
   void _populateFilters() {
