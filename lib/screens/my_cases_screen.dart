@@ -11,6 +11,7 @@ import 'login_screen.dart';
 import 'package:intl/intl.dart';
 import '../widgets/my_cases_detail_bottom_view.dart';
 import 'archived_cases_screen.dart';
+import 'case_types_stats.dart';
 
 class MyCasesScreen extends StatefulWidget {
   const MyCasesScreen({super.key});
@@ -355,6 +356,17 @@ Widget caseSummaryCard(Map<String, dynamic> data) {
                   context,
                   MaterialPageRoute(builder: (_) => const ArchivedCasesScreen()),
                 ).then((_) => fetchMyCases()); // ✅ Refresh when coming back
+              },
+            ),
+            ListTile(
+              leading: const Icon(Icons.category),
+              title: const Text('Case Types Stats'),
+              onTap: () {
+                Navigator.pop(context);
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (_) => const CaseTypeStatsScreen()),
+                );
               },
             ),
             const Divider(),

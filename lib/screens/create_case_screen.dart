@@ -168,6 +168,7 @@ class _CreateCaseScreenState extends State<CreateCaseScreen> {
       setState(() => selectedDistrict = preDistrict);
     }
 
+    // load subdistricts and communities
     await loadSubDistricts(preRegion, preDistrict);
     if (mounted && preSubDistrict.isNotEmpty) {
       if (!subDistricts.contains(preSubDistrict)) {
@@ -423,7 +424,11 @@ class _CreateCaseScreenState extends State<CreateCaseScreen> {
                     communities = [];
                   });
                   if (selectedRegion != null && val != null) {
+                    // load sub-districts and immediately also load all communities under the district
                     await loadSubDistricts(selectedRegion!, val);
+                    if (!addingCommunity) {
+                      await loadCommunities(selectedRegion!, val, null);
+                    }
                   }
                 },
                 decoration: const InputDecoration(
@@ -479,10 +484,22 @@ class _CreateCaseScreenState extends State<CreateCaseScreen> {
           children: [
             const Text("Community", style: TextStyle(fontWeight: FontWeight.bold)),
             TextButton(
-              onPressed: () => setState(() {
-                addingCommunity = !addingCommunity;
-                if (!addingCommunity) communityCtrl.clear();
-              }),
+              onPressed: () async {
+                setState(() {
+                  addingCommunity = !addingCommunity;
+                  if (addingCommunity == false) communityCtrl.clear();
+                });
+                // If switching to "Select existing", load communities for the current region/district/subDistrict
+                if (!addingCommunity &&
+                    selectedRegion != null &&
+                    selectedDistrict != null) {
+                  await loadCommunities(
+                    selectedRegion!,
+                    selectedDistrict!,
+                    selectedSubDistrict,
+                  );
+                }
+              },
               child: Text(addingCommunity ? "Select existing" : "Add new"),
             ),
           ],
@@ -573,7 +590,6 @@ class _CreateCaseScreenState extends State<CreateCaseScreen> {
                   const SizedBox(height: 16),
                   buildInput('Patient Phone', Icons.phone, phoneCtrl, type: TextInputType.phone),
                   const SizedBox(height: 16),
-
                   DropdownButtonFormField<String>(
                     value: gender,
                     items: ['male', 'female', 'other']
