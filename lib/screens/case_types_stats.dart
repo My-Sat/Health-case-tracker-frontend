@@ -404,29 +404,179 @@ class _CaseTypeStatsScreenState extends State<CaseTypeStatsScreen> {
     }
   }
 
-  Color _statusDotColor(String label) {
-    switch (label) {
-      case 'Recovered':
-        return Colors.green;
-      case 'Ongoing treatment':
-        return Colors.brown;
-      case 'Deceased':
-        return Colors.red;
-      default:
-        return Colors.grey;
-    }
-  }
+  Widget _buildFilterRow() {
+    // Single-row filter layout with five dropdowns.
+    // Flexes chosen to give case type slightly more room.
+    return Row(
+      children: [
+        // Case type
+        Expanded(
+          flex: 3,
+          child: DropdownButtonFormField<String>(
+            value: _selectedCaseTypeId,
+            decoration: InputDecoration(
+              labelText: 'Case Type',
+              border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+              filled: true,
+              fillColor: Colors.grey[50],
+              isDense: true,
+            ),
+            items: [
+              const DropdownMenuItem(value: 'all', child: Text('All')),
+              ..._allTypes.map((t) => DropdownMenuItem(
+                    value: t.id,
+                    child: Text(t.name),
+                  ))
+            ],
+            onChanged: (v) {
+              setState(() {
+                _selectedCaseTypeId = v ?? 'all';
+              });
+              _applyFilters();
+            },
+            isExpanded: true,
+          ),
+        ),
+        const SizedBox(width: 8),
 
-  Widget _legend() {
-    const labels = ['Recovered', 'Ongoing treatment', 'Deceased'];
-    return Wrap(
-      spacing: 12,
-      children: labels
-          .map((label) => _LegendDot(
-                color: _statusDotColor(label),
-                label: label,
-              ))
-          .toList(),
+        // Region
+        Expanded(
+          flex: 2,
+          child: DropdownButtonFormField<String>(
+            value: _selectedRegion,
+            decoration: InputDecoration(
+              labelText: 'Region',
+              border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+              filled: true,
+              fillColor: Colors.grey[50],
+              isDense: true,
+            ),
+            items: _regions.map((r) => DropdownMenuItem(value: r, child: Text(r))).toList(),
+            onChanged: (v) async {
+              final sel = v ?? 'All';
+              setState(() {
+                _selectedRegion = sel;
+                // reset downstream selections but do NOT forcibly clear facility selection yet
+                _selectedDistrict = 'All';
+                _selectedCommunity = 'All';
+                _districts = ['All'];
+                _communities = ['All'];
+              });
+              // load districts for region and refresh facility list scoped to region
+              if (sel != 'All') {
+                await _loadDistricts(sel);
+                await _loadFacilities(region: sel, district: null, community: null);
+                await _applyFilters();
+              } else {
+                // region is All -> show full facilities
+                await _loadFacilities(region: 'All', district: 'All', community: null);
+                await _applyFilters();
+              }
+            },
+            isExpanded: true,
+          ),
+        ),
+        const SizedBox(width: 8),
+
+        // District
+        Expanded(
+          flex: 2,
+          child: DropdownButtonFormField<String>(
+            value: _selectedDistrict,
+            decoration: InputDecoration(
+              labelText: 'District',
+              border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+              filled: true,
+              fillColor: Colors.grey[50],
+              isDense: true,
+            ),
+            items: _districts.map((d) => DropdownMenuItem(value: d, child: Text(d))).toList(),
+            onChanged: (_selectedRegion == 'All')
+                ? null
+                : (v) async {
+                    final sel = v ?? 'All';
+                    setState(() {
+                      _selectedDistrict = sel;
+                      _selectedCommunity = 'All';
+                      _communities = ['All'];
+                      // do not clear _selectedFacility here; we will refresh facilities below and preserve if possible
+                    });
+                    if (sel != 'All') {
+                      // load communities then refresh facilities under the district
+                      await _loadCommunities(_selectedRegion, sel);
+                      await _loadFacilities(region: _selectedRegion, district: sel, community: null);
+                      await _applyFilters();
+                    } else {
+                      // district reset -> show facilities scoped to region (or full if region All)
+                      await _loadFacilities(region: _selectedRegion, district: 'All', community: null);
+                      await _applyFilters();
+                    }
+                  },
+            isExpanded: true,
+          ),
+        ),
+        const SizedBox(width: 8),
+
+        // Community
+        Expanded(
+          flex: 2,
+          child: DropdownButtonFormField<String>(
+            value: _selectedCommunity,
+            decoration: InputDecoration(
+              labelText: 'Community',
+              border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+              filled: true,
+              fillColor: Colors.grey[50],
+              isDense: true,
+            ),
+            items: _communities.map((c) => DropdownMenuItem(value: c, child: Text(c))).toList(),
+            onChanged: (_selectedDistrict == 'All' || _selectedRegion == 'All')
+                ? null
+                : (v) async {
+                    final sel = v ?? 'All';
+                    setState(() {
+                      _selectedCommunity = sel;
+                      // keep _selectedFacility; we'll refresh facilities for this community and preserve selection if present
+                    });
+                    if (sel != 'All') {
+                      await _loadFacilities(region: _selectedRegion, district: _selectedDistrict, community: sel);
+                      await _applyFilters();
+                    } else {
+                      await _loadFacilities(region: _selectedRegion, district: _selectedDistrict, community: null);
+                      await _applyFilters();
+                    }
+                  },
+            isExpanded: true,
+          ),
+        ),
+        const SizedBox(width: 8),
+
+        // Facility (NEW) - enabled on load
+        Expanded(
+          flex: 2,
+          child: DropdownButtonFormField<String>(
+            value: _facilities.any((f) => f['id'] == _selectedFacility) ? _selectedFacility : 'All',
+            decoration: InputDecoration(
+              labelText: 'Facility',
+              border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+              filled: true,
+              fillColor: Colors.grey[50],
+              isDense: true,
+            ),
+            items: _facilities
+                .map((f) => DropdownMenuItem(value: f['id'], child: Text(f['name'] ?? f['id'] ?? '')))
+                .toList(),
+            onChanged: (v) {
+              final sel = v ?? 'All';
+              setState(() {
+                _selectedFacility = sel;
+              });
+              _applyFilters();
+            },
+            isExpanded: true,
+          ),
+        ),
+      ],
     );
   }
 
@@ -434,6 +584,8 @@ class _CaseTypeStatsScreenState extends State<CaseTypeStatsScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final int totalReported = _items.fold<int>(0, (sum, it) => sum + it.total);
+
     return Scaffold(
       appBar: AppBar(title: const Text('Case Types')),
       body: Container(
@@ -448,16 +600,32 @@ class _CaseTypeStatsScreenState extends State<CaseTypeStatsScreen> {
           child: Column(
             children: [
               const SizedBox(height: 12),
-              const Text(
-                'Reported Case Types',
-                style: TextStyle(
-                  color: Colors.white,
-                  fontWeight: FontWeight.bold,
-                  fontSize: 20,
-                ),
+              // Title with total reported count shown beside it
+              Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(
+                    'Reported Case Types',
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontWeight: FontWeight.bold,
+                      fontSize: 20,
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  Text(
+                    '($totalReported)',
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontSize: 18,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                ],
               ),
               const SizedBox(height: 8),
-              // FILTER ROW
+              // FILTER CONTAINER (single-line filters)
               Container(
                 margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
                 padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
@@ -467,172 +635,8 @@ class _CaseTypeStatsScreenState extends State<CaseTypeStatsScreen> {
                 ),
                 child: Column(
                   children: [
-                    // legend
-                    _legend(),
-                    const SizedBox(height: 12),
-                    // dropdown row: Case Type | Region | (spacer)
-                    Row(
-                      children: [
-                        // Case type
-                        Expanded(
-                          flex: 2,
-                          child: DropdownButtonFormField<String>(
-                            value: _selectedCaseTypeId,
-                            decoration: InputDecoration(
-                              labelText: 'Case Type',
-                              border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
-                              filled: true,
-                              fillColor: Colors.grey[50],
-                            ),
-                            items: [
-                              const DropdownMenuItem(value: 'all', child: Text('All')),
-                              ..._allTypes.map((t) => DropdownMenuItem(
-                                    value: t.id,
-                                    child: Text(t.name),
-                                  ))
-                            ],
-                            onChanged: (v) {
-                              setState(() {
-                                _selectedCaseTypeId = v ?? 'all';
-                              });
-                              _applyFilters();
-                            },
-                          ),
-                        ),
-                        const SizedBox(width: 8),
-                        // Region
-                        Expanded(
-                          flex: 2,
-                          child: DropdownButtonFormField<String>(
-                            value: _selectedRegion,
-                            decoration: InputDecoration(
-                              labelText: 'Region',
-                              border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
-                              filled: true,
-                              fillColor: Colors.grey[50],
-                            ),
-                            items: _regions.map((r) => DropdownMenuItem(value: r, child: Text(r))).toList(),
-                            onChanged: (v) async {
-                              final sel = v ?? 'All';
-                              setState(() {
-                                _selectedRegion = sel;
-                                // reset downstream selections but do NOT forcibly clear facility selection yet
-                                _selectedDistrict = 'All';
-                                _selectedCommunity = 'All';
-                                _districts = ['All'];
-                                _communities = ['All'];
-                              });
-                              // load districts for region and refresh facility list scoped to region
-                              if (sel != 'All') {
-                                await _loadDistricts(sel);
-                                await _loadFacilities(region: sel, district: null, community: null);
-                                await _applyFilters();
-                              } else {
-                                // region is All -> show full facilities
-                                await _loadFacilities(region: 'All', district: 'All', community: null);
-                                await _applyFilters();
-                              }
-                            },
-                          ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 8),
-                    // second row: District | Community | Facility
-                    Row(
-                      children: [
-                        // District
-                        Expanded(
-                          flex: 2,
-                          child: DropdownButtonFormField<String>(
-                            value: _selectedDistrict,
-                            decoration: InputDecoration(
-                              labelText: 'District',
-                              border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
-                              filled: true,
-                              fillColor: Colors.grey[50],
-                            ),
-                            items: _districts.map((d) => DropdownMenuItem(value: d, child: Text(d))).toList(),
-                            onChanged: (_selectedRegion == 'All')
-                                ? null
-                                : (v) async {
-                                    final sel = v ?? 'All';
-                                    setState(() {
-                                      _selectedDistrict = sel;
-                                      _selectedCommunity = 'All';
-                                      _communities = ['All'];
-                                      // do not clear _selectedFacility here; we will refresh facilities below and preserve if possible
-                                    });
-                                    if (sel != 'All') {
-                                      // load communities then refresh facilities under the district
-                                      await _loadCommunities(_selectedRegion, sel);
-                                      await _loadFacilities(region: _selectedRegion, district: sel, community: null);
-                                      await _applyFilters();
-                                    } else {
-                                      // district reset -> show facilities scoped to region (or full if region All)
-                                      await _loadFacilities(region: _selectedRegion, district: 'All', community: null);
-                                      await _applyFilters();
-                                    }
-                                  },
-                          ),
-                        ),
-                        const SizedBox(width: 8),
-                        // Community
-                        Expanded(
-                          flex: 2,
-                          child: DropdownButtonFormField<String>(
-                            value: _selectedCommunity,
-                            decoration: InputDecoration(
-                              labelText: 'Community',
-                              border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
-                              filled: true,
-                              fillColor: Colors.grey[50],
-                            ),
-                            items: _communities.map((c) => DropdownMenuItem(value: c, child: Text(c))).toList(),
-                            onChanged: (_selectedDistrict == 'All' || _selectedRegion == 'All')
-                                ? null
-                                : (v) async {
-                                    final sel = v ?? 'All';
-                                    setState(() {
-                                      _selectedCommunity = sel;
-                                      // keep _selectedFacility; we'll refresh facilities for this community and preserve selection if present
-                                    });
-                                    if (sel != 'All') {
-                                      await _loadFacilities(region: _selectedRegion, district: _selectedDistrict, community: sel);
-                                      await _applyFilters();
-                                    } else {
-                                      await _loadFacilities(region: _selectedRegion, district: _selectedDistrict, community: null);
-                                      await _applyFilters();
-                                    }
-                                  },
-                          ),
-                        ),
-                        const SizedBox(width: 8),
-                        // Facility (NEW) - enabled on load
-                        Expanded(
-                          flex: 2,
-                          child: DropdownButtonFormField<String>(
-                            value: _facilities.any((f) => f['id'] == _selectedFacility) ? _selectedFacility : 'All',
-                            decoration: InputDecoration(
-                              labelText: 'Facility',
-                              border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
-                              filled: true,
-                              fillColor: Colors.grey[50],
-                            ),
-                            items: _facilities
-                                .map((f) => DropdownMenuItem(value: f['id'], child: Text(f['name'] ?? f['id'] ?? '')))
-                                .toList(),
-                            onChanged: (v) {
-                              final sel = v ?? 'All';
-                              setState(() {
-                                _selectedFacility = sel;
-                              });
-                              _applyFilters();
-                            },
-                          ),
-                        ),
-                      ],
-                    ),
+                    // single-line filter row
+                    _buildFilterRow(),
                   ],
                 ),
               ),
@@ -749,6 +753,7 @@ class _StatusBucketTile extends StatelessWidget {
       rows.add(Padding(
         padding: const EdgeInsets.symmetric(vertical: 8),
         child: Center(child: Text('No entries', style: TextStyle(color: Colors.grey.shade600)))),
+
       );
     }
 
@@ -784,24 +789,6 @@ class _BreakdownRow extends StatelessWidget {
       contentPadding: const EdgeInsets.symmetric(horizontal: 8),
       leading: CircleAvatar(radius: 6, backgroundColor: dotColor),
       title: Text('$label ($value)', style: const TextStyle(fontWeight: FontWeight.w600)),
-    );
-  }
-}
-
-class _LegendDot extends StatelessWidget {
-  const _LegendDot({required this.color, required this.label});
-  final Color color;
-  final String label;
-
-  @override
-  Widget build(BuildContext context) {
-    return Row(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        CircleAvatar(radius: 5, backgroundColor: color),
-        const SizedBox(width: 6),
-        Text(label, style: const TextStyle(fontSize: 12, color: Colors.black87)),
-      ],
     );
   }
 }
