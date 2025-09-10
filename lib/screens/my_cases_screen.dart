@@ -40,7 +40,6 @@ class _MyCasesScreenState extends State<MyCasesScreen> {
     );
 
     if (response.statusCode == 200) {
-      print(response.body);
       setState(() {
         myCases = jsonDecode(response.body);
         isLoading = false;
