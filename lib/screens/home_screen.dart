@@ -48,6 +48,7 @@ class _HomeScreenState extends State<HomeScreen> {
     );
 
     if (response.statusCode == 200) {
+      print(response.body);
       caseList = jsonDecode(response.body);
       _populateFilters();
       setState(() => isLoading = false);

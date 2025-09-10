@@ -6,11 +6,59 @@ class CaseViewBottomSheet extends StatelessWidget {
 
   const CaseViewBottomSheet({required this.caseData, super.key});
 
-  // Safe extractor for "name" whether value is a Map or a raw string/id.
-  String _nameOf(dynamic v, [String fallback = 'Unknown']) {
-    if (v == null) return fallback;
-    if (v is Map) return (v['name'] ?? fallback).toString();
-    return v.toString();
+  // Resolve best-available location map
+  Map<String, String> _resolveLocation() {
+    String nameOfLocal(dynamic v) {
+      if (v == null) return '';
+      if (v is Map) return (v['name'] ?? '').toString();
+      return v.toString();
+    }
+
+    final result = {'region': '', 'district': '', 'subDistrict': '', 'community': ''};
+
+    // 1) server-synthesized case.location (preferred)
+    final caseLoc = caseData['location'];
+    if (caseLoc is Map) {
+      result['region'] = nameOfLocal(caseLoc['region']);
+      result['district'] = nameOfLocal(caseLoc['district']);
+      result['subDistrict'] = nameOfLocal(caseLoc['subDistrict']);
+      result['community'] = nameOfLocal(caseLoc['community']);
+      if (result.values.any((s) => s.isNotEmpty)) return result;
+    }
+
+    // 2) case.community (populated)
+    final caseCommunity = caseData['community'];
+    if (caseCommunity is Map) {
+      result['community'] = nameOfLocal(caseCommunity['name']);
+      result['region'] = nameOfLocal(caseCommunity['region']);
+      result['district'] = nameOfLocal(caseCommunity['district']);
+      result['subDistrict'] = nameOfLocal(caseCommunity['subDistrict']);
+      if (result.values.any((s) => s.isNotEmpty)) return result;
+    } else if (caseCommunity is String && caseCommunity.trim().isNotEmpty) {
+      result['community'] = caseCommunity;
+      return result;
+    }
+
+    // 3) healthFacility.location or top-level hf fields
+    final hf = caseData['healthFacility'];
+    if (hf is Map) {
+      final hfLoc = hf['location'];
+      if (hfLoc is Map) {
+        result['region'] = nameOfLocal(hfLoc['region']);
+        result['district'] = nameOfLocal(hfLoc['district']);
+        result['subDistrict'] = nameOfLocal(hfLoc['subDistrict']);
+        result['community'] = nameOfLocal(hfLoc['community']);
+        if (result.values.any((s) => s.isNotEmpty)) return result;
+      }
+
+      // fallback to direct fields
+      result['region'] = nameOfLocal(hf['region']);
+      result['district'] = nameOfLocal(hf['district']);
+      result['subDistrict'] = nameOfLocal(hf['subDistrict']);
+      result['community'] = nameOfLocal(hf['community']);
+    }
+
+    return result;
   }
 
   @override
@@ -18,22 +66,11 @@ class CaseViewBottomSheet extends StatelessWidget {
     final patient = caseData['patient'] ?? {};
     final caseStatus = (caseData['status'] ?? 'unknown').toString();
 
-    // healthFacility may be an id (string) or a populated map
-    final hf = caseData['healthFacility'];
-    Map<String, dynamic>? location;
-    if (hf is Map) {
-      if (hf['location'] is Map) {
-        location = Map<String, dynamic>.from(hf['location']);
-      } else {
-        // synthesize location from top-level fields if available
-        location = {
-          'region': hf['region'],
-          'district': hf['district'],
-          'subDistrict': hf['subDistrict'],
-          'community': hf['community'],
-        };
-      }
-    }
+    final loc = _resolveLocation();
+    final communityName = loc['community']?.isNotEmpty == true ? loc['community']! : 'Unknown';
+    final subDistrictName = loc['subDistrict'] ?? '';
+    final districtName = loc['district'] ?? '';
+    final regionName = loc['region'] ?? '';
 
     final timeline = (caseData['timeline'] ?? '').toString();
     final formattedTimeline = timeline.isNotEmpty
@@ -43,16 +80,10 @@ class CaseViewBottomSheet extends StatelessWidget {
     final ct = caseData['caseType'];
     final caseType = (ct is Map ? (ct['name'] ?? 'UNKNOWN') : 'UNKNOWN').toString().toUpperCase();
 
-    // Prefer the case-level patient community if set (outside facility flow),
-    // otherwise fall back to facility location/community (or facility.community).
-    final caseCommunity = caseData['community'];
-    final communityName = caseCommunity != null
-        ? _nameOf(caseCommunity, 'Unknown')
-        : _nameOf(location?['community'] ?? (hf is Map ? hf['community'] : null), 'Unknown');
-
     final officer = caseData['officer'];
     final reporterName = officer is Map ? (officer['fullName'] ?? 'Unknown').toString() : 'Unknown';
 
+    final hf = caseData['healthFacility'];
     final facilityName = hf is Map ? (hf['name'] ?? 'Unknown facility').toString() : 'Unknown facility';
 
     Widget infoBox(String label, String value) {
@@ -104,10 +135,9 @@ class CaseViewBottomSheet extends StatelessWidget {
             infoBox('Reported On', formattedTimeline),
             infoBox('Facility', facilityName),
             infoBox('Community', communityName),
-            if ((location?['subDistrict'] ?? '').toString().trim().isNotEmpty)
-              infoBox('Sub-District', _nameOf(location?['subDistrict'])),
-            infoBox('District', _nameOf(location?['district'])),
-            infoBox('Region', _nameOf(location?['region'])),
+            if (subDistrictName.trim().isNotEmpty) infoBox('Sub-District', subDistrictName),
+            infoBox('District', districtName.isNotEmpty ? districtName : 'Unknown'),
+            infoBox('Region', regionName.isNotEmpty ? regionName : 'Unknown'),
             infoBox('Reported By', reporterName),
             infoBox('Patient Age', '${patient['age'] ?? 'n/a'} yrs'),
             infoBox('Patient Gender', (patient['gender'] ?? 'n/a').toString()),

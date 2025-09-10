@@ -118,6 +118,83 @@ class CaseAdminViewBottomSheet extends StatelessWidget {
     return 'Unknown';
   }
 
+  /// Resolve best-available location map with priority:
+  /// 1) case-level `location` (server-synthesized, preferred)
+  /// 2) populated `community` (may contain parents)
+  /// 3) healthFacility.location or top-level HF fields
+  Map<String, String> _resolveLocation() {
+    // helper that returns empty string instead of 'Unknown'
+    String nameOrEmpty(dynamic v) {
+      final n = _nameOf(v, '');
+      if (n == 'Unknown') return '';
+      return n.trim();
+    }
+
+    final result = {'region': '', 'district': '', 'subDistrict': '', 'community': ''};
+
+    // 1) case-level location (preferred)
+    final caseLoc = caseData['location'];
+    if (caseLoc is Map) {
+      final region = nameOrEmpty(caseLoc['region']);
+      final district = nameOrEmpty(caseLoc['district']);
+      final subDistrict = nameOrEmpty(caseLoc['subDistrict']);
+      final community = nameOrEmpty(caseLoc['community']);
+      if (region.isNotEmpty || district.isNotEmpty || subDistrict.isNotEmpty || community.isNotEmpty) {
+        result['region'] = region;
+        result['district'] = district;
+        result['subDistrict'] = subDistrict;
+        result['community'] = community;
+        return result;
+      }
+    }
+
+    // 2) populated community (may include parents)
+    final com = caseData['community'];
+    if (com is Map) {
+      final community = nameOrEmpty(com['name']);
+      final district = nameOrEmpty(com['district']);
+      final subDistrict = nameOrEmpty(com['subDistrict']);
+      final region = nameOrEmpty(com['region']);
+      if (community.isNotEmpty || district.isNotEmpty || subDistrict.isNotEmpty || region.isNotEmpty) {
+        result['region'] = region;
+        result['district'] = district;
+        result['subDistrict'] = subDistrict;
+        result['community'] = community;
+        return result;
+      }
+    } else if (com is String && com.trim().isNotEmpty) {
+      result['community'] = com.trim();
+      return result;
+    }
+
+    // 3) healthFacility location
+    final hf = caseData['healthFacility'];
+    if (hf is Map) {
+      final hfLoc = hf['location'];
+      if (hfLoc is Map) {
+        final region = nameOrEmpty(hfLoc['region']);
+        final district = nameOrEmpty(hfLoc['district']);
+        final subDistrict = nameOrEmpty(hfLoc['subDistrict']);
+        final community = nameOrEmpty(hfLoc['community']);
+        if (region.isNotEmpty || district.isNotEmpty || subDistrict.isNotEmpty || community.isNotEmpty) {
+          result['region'] = region;
+          result['district'] = district;
+          result['subDistrict'] = subDistrict;
+          result['community'] = community;
+          return result;
+        }
+      }
+
+      // fallback to top-level hf fields
+      result['region'] = nameOrEmpty(hf['region']);
+      result['district'] = nameOrEmpty(hf['district']);
+      result['subDistrict'] = nameOrEmpty(hf['subDistrict']);
+      result['community'] = nameOrEmpty(hf['community']);
+    }
+
+    return result;
+  }
+
   @override
   Widget build(BuildContext context) {
     final patient = caseData['patient'] ?? <String, dynamic>{};
@@ -125,22 +202,8 @@ class CaseAdminViewBottomSheet extends StatelessWidget {
     // status might be String or something else
     final status = _nameOf(caseData['status'], 'Unknown').toLowerCase();
 
-    // healthFacility may be an id, or a populated object
-    final hf = caseData['healthFacility'];
-    Map<String, dynamic> location = {};
-    if (hf is Map) {
-      if (hf['location'] is Map) {
-        location = Map<String, dynamic>.from(hf['location']);
-      } else {
-        // synthesize from top-level props (could be populated refs or ids)
-        location = {
-          'region': hf['region'],
-          'district': hf['district'],
-          'subDistrict': hf['subDistrict'],
-          'community': hf['community'],
-        };
-      }
-    }
+    // Resolve location using robust priority
+    final location = _resolveLocation();
 
     // timeline might be a String, DateTime, or missing
     final timelineRaw = caseData['timeline'];
@@ -153,9 +216,7 @@ class CaseAdminViewBottomSheet extends StatelessWidget {
         } else {
           dt = DateTime.tryParse(timelineRaw.toString()) ?? DateTime.tryParse(timelineRaw as String? ?? '');
         }
-        formattedTimeline = dt != null
-            ? DateFormat.yMMMMd().add_jm().format(dt)
-            : timelineRaw.toString();
+        formattedTimeline = dt != null ? DateFormat.yMMMMd().add_jm().format(dt) : timelineRaw.toString();
       } catch (_) {
         formattedTimeline = timelineRaw.toString();
       }
@@ -166,14 +227,17 @@ class CaseAdminViewBottomSheet extends StatelessWidget {
       'UNKNOWN',
     ).toUpperCase();
 
-    // Prefer case-level community if provided; otherwise use facility location community
-    final communityName = (_nameOf(caseData['community']).trim().isNotEmpty)
-        ? _nameOf(caseData['community'])
-        : _nameOf(location['community']);
+    // Determine community display: prefer case-level location.community, then case.community, then HF
+    final caseLocCommunity = (caseData['location'] is Map) ? _nameOf(caseData['location']['community'], '') : '';
+    final caseCommunity = caseLocCommunity.isNotEmpty
+        ? caseLocCommunity
+        : (caseData['community'] != null ? _nameOf(caseData['community']) : '');
 
     // Use robust officer name extraction
     final reporterName = _extractOfficerName(caseData['officer']);
 
+    // facility name (if populated)
+    final hf = caseData['healthFacility'];
     final facilityName = hf is Map ? _nameOf(hf['name'], 'Unknown facility') : 'Unknown facility';
 
     Widget infoBox(String label, String value) {
@@ -191,10 +255,10 @@ class CaseAdminViewBottomSheet extends StatelessWidget {
       );
     }
 
-    // small helper to only show sub-district when present
-    final subDistrictName = _nameOf(location['subDistrict']);
-    final districtName = _nameOf(location['district']);
-    final regionName = _nameOf(location['region']);
+    final subDistrictName = (location['subDistrict'] ?? '').trim();
+    final districtName = (location['district'] ?? '').trim();
+    final regionName = (location['region'] ?? '').trim();
+    final communityName = caseCommunity.trim();
 
     return Padding(
       padding: EdgeInsets.only(
@@ -229,10 +293,10 @@ class CaseAdminViewBottomSheet extends StatelessWidget {
             infoBox('Case Status', status.toUpperCase()),
             infoBox('Reported On', formattedTimeline),
             infoBox('Facility', facilityName),
-            infoBox('Community', communityName),
-            if (subDistrictName.trim().isNotEmpty) infoBox('Sub-District', subDistrictName),
-            infoBox('District', districtName),
-            infoBox('Region', regionName),
+            infoBox('Community', communityName.isNotEmpty ? communityName : 'Unknown'),
+            if (subDistrictName.isNotEmpty) infoBox('Sub-District', subDistrictName),
+            infoBox('District', districtName.isNotEmpty ? districtName : 'Unknown'),
+            infoBox('Region', regionName.isNotEmpty ? regionName : 'Unknown'),
             infoBox('Reported By', reporterName),
             infoBox('Patient Name', _nameOf(patient['name'])),
             infoBox('Patient Age', '${patient['age'] ?? 'n/a'} yrs'),

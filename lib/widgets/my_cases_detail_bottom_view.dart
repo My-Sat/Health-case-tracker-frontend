@@ -1,4 +1,3 @@
-// lib/widgets/my_cases_detail_bottom_view.dart
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import '../screens/edit_case_screen.dart';
@@ -90,11 +89,142 @@ class CaseDetailBottomSheet extends StatelessWidget {
     );
   }
 
-  // Safe extractor for "name" whether value is a Map or a raw string/id.
+  // Robust extractor for human-friendly name from various shapes
   String _nameOf(dynamic v, [String fallback = 'Unknown']) {
     if (v == null) return fallback;
-    if (v is Map) return (v['name'] ?? fallback).toString();
-    return v.toString();
+
+    // plain string: return unless it's an ObjectId-like string
+    if (v is String) {
+      final s = v.trim();
+      if (s.isEmpty) return fallback;
+      if (RegExp(r'^[0-9a-fA-F]{24}$').hasMatch(s)) return fallback;
+      return s;
+    }
+
+    // Map: prefer common name keys
+    if (v is Map) {
+      if (v.containsKey('name') && v['name'] != null && v['name'].toString().trim().isNotEmpty) {
+        return v['name'].toString();
+      }
+      if (v.containsKey('fullName') && v['fullName'] != null && v['fullName'].toString().trim().isNotEmpty) {
+        return v['fullName'].toString();
+      }
+      if (v.containsKey('full_name') && v['full_name'] != null && v['full_name'].toString().trim().isNotEmpty) {
+        return v['full_name'].toString();
+      }
+      if (v.containsKey('fullname') && v['fullname'] != null && v['fullname'].toString().trim().isNotEmpty) {
+        return v['fullname'].toString();
+      }
+      // nested common containers
+      if (v['_doc'] is Map) {
+        final inner = v['_doc'] as Map;
+        if (inner.containsKey('name') && inner['name'] != null && inner['name'].toString().trim().isNotEmpty) {
+          return inner['name'].toString();
+        }
+        if (inner.containsKey('fullName') && inner['fullName'] != null && inner['fullName'].toString().trim().isNotEmpty) {
+          return inner['fullName'].toString();
+        }
+      }
+      // Sometimes the map itself contains nested objects like { district: { name: 'X' } }
+      for (final key in ['name', 'community', 'subDistrict', 'district', 'region']) {
+        if (v[key] is Map) {
+          final nested = v[key] as Map;
+          if (nested['name'] != null && nested['name'].toString().trim().isNotEmpty) {
+            return nested['name'].toString();
+          }
+        }
+        if (v[key] is String && v[key].toString().trim().isNotEmpty) {
+          final s = v[key].toString().trim();
+          if (!RegExp(r'^[0-9a-fA-F]{24}$').hasMatch(s)) return s;
+        }
+      }
+      // fallback: first non-id string value
+      for (final val in v.values) {
+        if (val is String && val.trim().isNotEmpty && !RegExp(r'^[0-9a-fA-F]{24}$').hasMatch(val.trim())) {
+          return val;
+        }
+      }
+      return fallback;
+    }
+
+    final s = v.toString().trim();
+    if (s.isEmpty) return fallback;
+    if (RegExp(r'^[0-9a-fA-F]{24}$').hasMatch(s)) return fallback;
+    return s;
+  }
+
+  // Resolve a normalized location map with priority:
+  // 1) caseData['location'] (synthesized on server) -> best
+  // 2) caseData['community'] (populated community may include parents)
+  // 3) healthFacility.location (synthesized HF location) or HF top-level fields
+  Map<String, String> _resolveLocation() {
+    // 1) case-level location (server synthesizes this as strings or populated refs)
+    final dynamic caseLocRaw = caseData['location'];
+    if (caseLocRaw is Map) {
+      final region = _nameOf(caseLocRaw['region'], '');
+      final district = _nameOf(caseLocRaw['district'], '');
+      final subDistrict = _nameOf(caseLocRaw['subDistrict'], '');
+      final community = _nameOf(caseLocRaw['community'], '');
+      if (region.isNotEmpty || district.isNotEmpty || subDistrict.isNotEmpty || community.isNotEmpty) {
+        return {
+          'region': region,
+          'district': district,
+          'subDistrict': subDistrict,
+          'community': community,
+        };
+      }
+    }
+
+    // 2) community-level information (populated community may carry parent refs)
+    final dynamic comRaw = caseData['community'];
+    if (comRaw is Map) {
+      final community = _nameOf(comRaw, '');
+      final region = _nameOf(comRaw['region'], '');
+      final district = _nameOf(comRaw['district'], '');
+      final subDistrict = _nameOf(comRaw['subDistrict'], '');
+      if (community.isNotEmpty || region.isNotEmpty || district.isNotEmpty || subDistrict.isNotEmpty) {
+        return {
+          'region': region,
+          'district': district,
+          'subDistrict': subDistrict,
+          'community': community,
+        };
+      }
+    }
+
+    // 3) healthFacility location
+    final hf = caseData['healthFacility'];
+    if (hf is Map) {
+      // prefer explicit hf.location if present
+      if (hf['location'] is Map) {
+        final loc = Map<String, dynamic>.from(hf['location']);
+        final region = _nameOf(loc['region'], '');
+        final district = _nameOf(loc['district'], '');
+        final subDistrict = _nameOf(loc['subDistrict'], '');
+        final community = _nameOf(loc['community'], '');
+        return {
+          'region': region,
+          'district': district,
+          'subDistrict': subDistrict,
+          'community': community,
+        };
+      }
+
+      // fallback to top-level hf fields (could be populated refs or strings)
+      final region = _nameOf(hf['region'], '');
+      final district = _nameOf(hf['district'], '');
+      final subDistrict = _nameOf(hf['subDistrict'], '');
+      final community = _nameOf(hf['community'], '');
+      return {
+        'region': region,
+        'district': district,
+        'subDistrict': subDistrict,
+        'community': community,
+      };
+    }
+
+    // Default empty
+    return {'region': '', 'district': '', 'subDistrict': '', 'community': ''};
   }
 
   @override
@@ -103,22 +233,8 @@ class CaseDetailBottomSheet extends StatelessWidget {
     final caseStatus = (caseData['status'] ?? 'unknown').toString();
     final patientStatus = (patient['status'] ?? 'Ongoing treatment').toString();
 
-    // healthFacility may be an id (string) or a populated map
-    final hf = caseData['healthFacility'];
-    Map<String, dynamic>? location;
-    if (hf is Map) {
-      if (hf['location'] is Map) {
-        location = Map<String, dynamic>.from(hf['location']);
-      } else {
-        // synthesize location from top-level fields if available
-        location = {
-          'region': hf['region'],
-          'district': hf['district'],
-          'subDistrict': hf['subDistrict'],
-          'community': hf['community'],
-        };
-      }
-    }
+    // Resolve best-available location map
+    final location = _resolveLocation();
 
     final timeline = (caseData['timeline'] ?? '').toString();
     final formattedTimeline = timeline.isNotEmpty
@@ -128,12 +244,14 @@ class CaseDetailBottomSheet extends StatelessWidget {
     final ct = caseData['caseType'];
     final caseType = (ct is Map ? (ct['name'] ?? 'UNKNOWN') : 'UNKNOWN').toString().toUpperCase();
 
-    // Prefer the case-level patient community if set (outside facility flow),
-    // otherwise fall back to facility location/community (or facility.community).
-    final caseCommunity = caseData['community'];
-    final communityName = caseCommunity != null
-        ? _nameOf(caseCommunity, 'Unknown')
-        : _nameOf(location?['community'] ?? (hf is Map ? hf['community'] : null), 'Unknown');
+    // Determine community display: prefer case-level location.community, then case.community, then HF
+    final caseLevelCommunity = (caseData['location'] is Map) ? _nameOf(caseData['location']['community'], '') : '';
+    final caseCommunity = caseLevelCommunity.isNotEmpty
+        ? caseLevelCommunity
+        : (caseData['community'] != null ? _nameOf(caseData['community']) : '');
+
+    final hf = caseData['healthFacility'];
+    final facilityName = (hf is Map) ? (_nameOf(hf['name'], 'Unknown facility')) : 'Unknown facility';
 
     Widget infoBox(String label, String value) {
       return Container(
@@ -149,6 +267,11 @@ class CaseDetailBottomSheet extends StatelessWidget {
         ),
       );
     }
+
+    final subDistrictName = location['subDistrict'] ?? '';
+    final districtName = location['district'] ?? '';
+    final regionName = location['region'] ?? '';
+    final communityName = caseCommunity.isNotEmpty ? caseCommunity : (location['community'] ?? '');
 
     return Padding(
       padding: EdgeInsets.only(
@@ -227,14 +350,13 @@ class CaseDetailBottomSheet extends StatelessWidget {
 
             const SizedBox(height: 10),
             infoBox('Reported On', formattedTimeline),
-            infoBox('Facility', hf is Map ? (hf['name'] ?? 'Unknown facility').toString() : 'Unknown facility'),
-            infoBox('Community', communityName),
+            infoBox('Facility', facilityName),
+            infoBox('Community', communityName.isNotEmpty ? communityName : 'Unknown'),
 
-            if ((location?['subDistrict'] ?? '').toString().trim().isNotEmpty)
-              infoBox('Sub-District', _nameOf(location?['subDistrict'])),
+            if (subDistrictName.trim().isNotEmpty) infoBox('Sub-District', subDistrictName),
 
-            infoBox('District', _nameOf(location?['district'])),
-            infoBox('Region', _nameOf(location?['region'])),
+            infoBox('District', districtName.isNotEmpty ? districtName : 'Unknown'),
+            infoBox('Region', regionName.isNotEmpty ? regionName : 'Unknown'),
 
             infoBox('Patient Name', (patient['name'] ?? 'Unknown').toString()),
             infoBox('Patient Status', patientStatus),

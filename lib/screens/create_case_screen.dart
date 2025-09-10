@@ -51,8 +51,8 @@ class _CreateCaseScreenState extends State<CreateCaseScreen> {
   String patientStatus = 'Ongoing treatment';
   bool isSubmitting = false;
 
-  /// If true: use officer facility community directly (no location UI)
-  bool useFacilityCommunity = true;
+  /// Always false so location UI is shown and prefilled on load
+  bool useFacilityCommunity = false;
 
   @override
   void initState() {
@@ -60,7 +60,7 @@ class _CreateCaseScreenState extends State<CreateCaseScreen> {
     WidgetsBinding.instance.addPostFrameCallback((_) async {
       await loadCaseTypes();
       await loadRegions();
-      // Try to prefill once initially (use facility values)
+      // Since useFacilityCommunity is always false, prefill facility location on load
       if (!useFacilityCommunity) {
         await prefillFacilityLocation();
       }
@@ -619,24 +619,9 @@ class _CreateCaseScreenState extends State<CreateCaseScreen> {
                   ),
                   const SizedBox(height: 16),
 
-                  // Use Facility Community switch
-                  SwitchListTile(
-                    value: useFacilityCommunity,
-                    onChanged: (val) async {
-                      setState(() => useFacilityCommunity = val);
-                      if (!val) {
-                        // We are switching OFF -> show location UI with prefill
-                        await prefillFacilityLocation();
-                      }
-                    },
-                    title: const Text("Use Facility Community"),
-                    contentPadding: EdgeInsets.zero,
-                  ),
-
-                  if (!useFacilityCommunity) ...[
-                    const SizedBox(height: 16),
-                    buildLocationDropdownSection(),
-                  ],
+                  // Location UI is always shown now (useFacilityCommunity is false)
+                  const SizedBox(height: 16),
+                  buildLocationDropdownSection(),
 
                   const SizedBox(height: 24),
                   ElevatedButton(

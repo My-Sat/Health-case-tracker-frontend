@@ -24,6 +24,7 @@ class _AllCasesScreenState extends State<AllCasesScreen> {
   Set<String> regions = {};
   Set<String> districts = {};
   Set<String> communities = {};
+  Set<String> subDistricts = {};
 
   @override
   void initState() {
@@ -48,7 +49,6 @@ class _AllCasesScreenState extends State<AllCasesScreen> {
     }
 
     // Backwards compatibility: try the older endpoints
-    // 1) try the root /api/cases (may return admin-only or officer-specific depending on server)
     final rootResp = await http.get(Uri.parse(base), headers: {'Authorization': 'Bearer $token'});
     if (rootResp.statusCode == 200) {
       allCases = jsonDecode(rootResp.body);
@@ -57,7 +57,6 @@ class _AllCasesScreenState extends State<AllCasesScreen> {
       return;
     }
 
-    // 2) finally try /api/cases/my-cases (officer-specific)
     final myResp = await http.get(Uri.parse('$base/my-cases'), headers: {'Authorization': 'Bearer $token'});
     if (myResp.statusCode == 200) {
       allCases = jsonDecode(myResp.body);
@@ -69,15 +68,109 @@ class _AllCasesScreenState extends State<AllCasesScreen> {
       return;
     }
 
-    // If none worked
     setState(() => isLoading = false);
     ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Failed to load cases')));
   }
 
+  // small helper to read either Map or String -> String
+
+  /// Returns an effective location map for a case:
+  /// { 'region', 'district', 'subDistrict', 'community' } (strings, may be empty)
+  Map<String, String> _effectiveLocation(dynamic c) {
+    String nameOf(dynamic v) {
+      if (v == null) return '';
+      if (v is Map) return (v['name'] ?? '').toString();
+      return v.toString();
+    }
+
+    final result = {
+      'region': '',
+      'district': '',
+      'subDistrict': '',
+      'community': '',
+    };
+
+    // 1) Prefer server-synthesized case-level location (best)
+    final caseLoc = c['location'];
+    if (caseLoc != null && caseLoc is Map) {
+      result['region'] = nameOf(caseLoc['region']);
+      result['district'] = nameOf(caseLoc['district']);
+      result['subDistrict'] = nameOf(caseLoc['subDistrict']);
+      result['community'] = nameOf(caseLoc['community']);
+      // if any is present, return early
+      if (result.values.any((s) => s.isNotEmpty)) return result;
+    }
+
+    // 2) If the case's populated community exists and is different from facility's community,
+    //    prefer that and try to use parent fields from the community if available
+    final caseCommunity = c['community'];
+    final hf = c['healthFacility'];
+    String hfCommunityName = '';
+    if (hf != null && hf is Map) {
+      // facility may contain synthesized location already
+      final hfLocation = hf['location'] ?? {};
+      if (hfLocation is Map && hfLocation['community'] != null) {
+        hfCommunityName = nameOf(hfLocation['community']);
+      } else if (hf['community'] != null) {
+        hfCommunityName = nameOf(hf['community']);
+      }
+    }
+
+    final caseCommunityName = caseCommunity != null ? (caseCommunity is Map ? nameOf(caseCommunity['name'] ?? caseCommunity) : nameOf(caseCommunity)) : '';
+
+    if (caseCommunityName.isNotEmpty && hfCommunityName.toLowerCase() != caseCommunityName.toLowerCase()) {
+      // take names from community doc if present
+      if (caseCommunity is Map) {
+        result['community'] = nameOf(caseCommunity['name']);
+        result['district'] = nameOf(caseCommunity['district']);
+        result['subDistrict'] = nameOf(caseCommunity['subDistrict']);
+        result['region'] = nameOf(caseCommunity['region']);
+        return result;
+      } else {
+        result['community'] = caseCommunityName;
+        return result;
+      }
+    }
+
+    // 3) Fallback: use healthFacility's synthesized location
+    final hfLocation = hf != null && hf is Map ? (hf['location'] ?? {}) : {};
+    if (hfLocation is Map && hfLocation.isNotEmpty) {
+      result['region'] = nameOf(hfLocation['region']);
+      result['district'] = nameOf(hfLocation['district']);
+      result['subDistrict'] = nameOf(hfLocation['subDistrict']);
+      result['community'] = nameOf(hfLocation['community']);
+      return result;
+    }
+
+    // 4) Last resort: top-level hf fields (could be populated objects)
+    if (hf != null && hf is Map) {
+      result['region'] = nameOf(hf['region']);
+      result['district'] = nameOf(hf['district']);
+      result['subDistrict'] = nameOf(hf['subDistrict']);
+      result['community'] = nameOf(hf['community']);
+    }
+
+    return result;
+  }
+
   void _populateFilters() {
-    regions = allCases.map((c) => c['healthFacility']['location']['region'] as String).toSet();
-    districts = allCases.map((c) => c['healthFacility']['location']['district'] as String).toSet();
-    communities = allCases.map((c) => c['healthFacility']['location']['community'] as String).toSet();
+    regions.clear();
+    districts.clear();
+    communities.clear();
+    subDistricts.clear();
+
+    for (final c in allCases) {
+      final loc = _effectiveLocation(c);
+      final r = loc['region'] ?? '';
+      final d = loc['district'] ?? '';
+      final sd = loc['subDistrict'] ?? '';
+      final com = loc['community'] ?? '';
+
+      if (r.isNotEmpty) regions.add(r);
+      if (d.isNotEmpty) districts.add(d);
+      if (sd.isNotEmpty) subDistricts.add(sd);
+      if (com.isNotEmpty) communities.add(com);
+    }
 
     filterOptions = [
       'All',
@@ -92,6 +185,7 @@ class _AllCasesScreenState extends State<AllCasesScreen> {
       'Other',
       ...regions,
       ...districts,
+      ...subDistricts,
       ...communities,
     ];
   }
@@ -101,85 +195,100 @@ class _AllCasesScreenState extends State<AllCasesScreen> {
 
     final f = selectedFilter.toLowerCase();
     return allCases.where((c) {
-      final cs = (c['status'] as String).toLowerCase();
-      final ps = (c['patient']['status'] as String).toLowerCase();
-      final g = (c['patient']['gender'] as String).toLowerCase();
-      final loc = c['healthFacility']['location'];
-      final region = (loc['region'] as String).toLowerCase();
-      final district = (loc['district'] as String).toLowerCase();
-      final community = (loc['community'] as String).toLowerCase();
+      final cs = (c['status'] ?? '').toString().toLowerCase();
+      final ps = (c['patient']?['status'] ?? '').toString().toLowerCase();
+      final g = (c['patient']?['gender'] ?? '').toString().toLowerCase();
+      final loc = _effectiveLocation(c);
+      final region = (loc['region'] ?? '').toString().toLowerCase();
+      final district = (loc['district'] ?? '').toString().toLowerCase();
+      final subDistrict = (loc['subDistrict'] ?? '').toString().toLowerCase();
+      final community = (loc['community'] ?? '').toString().toLowerCase();
 
       return cs == f ||
-        ps == f ||
-        g == f ||
-        region == f ||
-        district == f ||
-        community == f;
+          ps == f ||
+          g == f ||
+          region == f ||
+          district == f ||
+          subDistrict == f ||
+          community == f;
     }).toList();
   }
 
-Widget caseSummaryCard(Map<String, dynamic> data) {
-  final patient = data['patient'];
-  final caseType = (data['caseType']['name'] ?? 'UNKNOWN').toString().toUpperCase();
-  final status = data['status'];
-  final timeline = data['timeline'] ?? '';
-  final formattedTimeline = timeline.isNotEmpty
-      ? DateFormat.yMMMd().format(DateTime.parse(timeline))
-      : 'N/A';
-  final location = data['healthFacility']['location'];
-  final community = location['community'];
+  Widget caseSummaryCard(Map<String, dynamic> data) {
+    final patient = data['patient'] ?? {};
+    final caseType = ((data['caseType'] ?? {})['name'] ?? 'UNKNOWN').toString().toUpperCase();
+    final status = data['status'] ?? '';
+    final timeline = data['timeline'] ?? '';
+    final formattedTimeline = timeline.toString().isNotEmpty
+        ? DateFormat.yMMMd().format(DateTime.tryParse(timeline.toString()) ?? DateTime.now())
+        : 'N/A';
 
-  Color statusColor = Colors.grey;
-  if (status == 'suspected') statusColor = Colors.orange;
-  if (status == 'confirmed') statusColor = Colors.red;
-  if (status == 'not a case') statusColor = Colors.green;
+    final loc = _effectiveLocation(data);
+    final community = loc['community'] ?? '';
+    final subDistrict = loc['subDistrict'] ?? '';
+    String locationDisplay;
+    if (community.isNotEmpty) {
+      locationDisplay = community + (subDistrict.isNotEmpty ? ' · $subDistrict' : '');
+    } else if (loc['district']?.isNotEmpty == true) {
+      locationDisplay = loc['district']!;
+    } else if (loc['region']?.isNotEmpty == true) {
+      locationDisplay = loc['region']!;
+    } else {
+      locationDisplay = 'N/A';
+    }
 
-  return GestureDetector(
-    onTap: () {
-      showModalBottomSheet(
-        context: context,
-        isScrollControlled: true,
-        shape: const RoundedRectangleBorder(
-          borderRadius: BorderRadius.vertical(top: Radius.circular(25)),
-        ),
-        builder: (_) => CaseViewBottomSheet(caseData: data),
-      );
-    },
-    child: Container(
-      margin: EdgeInsets.symmetric(vertical: 6, horizontal: 16),
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        border: Border.all(color: Colors.grey.shade300),
-        borderRadius: BorderRadius.circular(12),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.grey.shade200,
-            blurRadius: 3,
-            offset: Offset(2, 2),
+    Color statusColor = Colors.grey;
+    if (status == 'suspected') statusColor = Colors.orange;
+    if (status == 'confirmed') statusColor = Colors.red;
+    if (status == 'not a case') statusColor = Colors.green;
+
+    return GestureDetector(
+      onTap: () {
+        showModalBottomSheet(
+          context: context,
+          isScrollControlled: true,
+          shape: const RoundedRectangleBorder(
+            borderRadius: BorderRadius.vertical(top: Radius.circular(25)),
           ),
-        ],
-      ),
-      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-        Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
-          Text(caseType, style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
-          Text(status.toUpperCase(), style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: statusColor)),
+          builder: (_) => CaseViewBottomSheet(caseData: data),
+        );
+      },
+      child: Container(
+        margin: const EdgeInsets.symmetric(vertical: 6, horizontal: 16),
+        padding: const EdgeInsets.all(12),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          border: Border.all(color: Colors.grey.shade300),
+          borderRadius: BorderRadius.circular(12),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.grey.shade200,
+              blurRadius: 3,
+              offset: const Offset(2, 2),
+            ),
+          ],
+        ),
+        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
+            Text(caseType, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+            Text(status.toString().toUpperCase(),
+                style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: statusColor)),
+          ]),
+          const SizedBox(height: 4),
+          Text.rich(TextSpan(
+            text: 'Reported: ',
+            style: TextStyle(fontWeight: FontWeight.w600, color: Colors.grey[700]),
+            children: [TextSpan(text: '$formattedTimeline · $locationDisplay', style: const TextStyle(fontWeight: FontWeight.normal, color: Colors.black87))],
+          )),
+          Text.rich(TextSpan(
+            text: 'Patient: ',
+            style: TextStyle(fontWeight: FontWeight.w600, color: Colors.grey[700]),
+            children: [TextSpan(text: '${patient['gender'] ?? ''}, ${patient['age'] ?? ''}yrs · ${patient['status'] ?? ''}', style: const TextStyle(color: Colors.black87))],
+          )),
         ]),
-        SizedBox(height: 4),
-        Text.rich(TextSpan(
-          text: 'Reported: ',
-          style: TextStyle(fontWeight: FontWeight.w600, color: Colors.grey[700]),
-          children: [TextSpan(text: '$formattedTimeline · $community', style: TextStyle(fontWeight: FontWeight.normal, color: Colors.black87))],
-        )),
-        Text.rich(TextSpan(
-          text: 'Patient: ',
-          style: TextStyle(fontWeight: FontWeight.w600, color: Colors.grey[700]),
-          children: [TextSpan(text: '${patient['gender']}, ${patient['age']}yrs · ${patient['status']}', style: TextStyle(color: Colors.black87))],
-        )),
-      ]),
-    ),
-  );
-}
+      ),
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -187,25 +296,25 @@ Widget caseSummaryCard(Map<String, dynamic> data) {
       appBar: AppBar(),
       body: Container(
         decoration: BoxDecoration(
-    gradient: LinearGradient(
-      colors: [Colors.teal.shade800, Colors.teal.shade300],
-      begin: Alignment.topCenter,
-      end: Alignment.bottomCenter,
-    ),
-  ),
+          gradient: LinearGradient(
+            colors: [Colors.teal.shade800, Colors.teal.shade300],
+            begin: Alignment.topCenter,
+            end: Alignment.bottomCenter,
+          ),
+        ),
         child: SafeArea(
           child: Column(children: [
-            SizedBox(height: 16),
+            const SizedBox(height: 16),
             Text(
               'All Reported Cases (${allCases.length})',
-              style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold, color: Colors.white),
+              style: const TextStyle(fontSize: 22, fontWeight: FontWeight.bold, color: Colors.white),
             ),
-            SizedBox(height: 16),
+            const SizedBox(height: 16),
             Expanded(
               child: Container(
                 decoration: BoxDecoration(
                   color: Colors.white.withAlpha((0.95 * 255).toInt()),
-                  borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+                  borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
                 ),
                 child: Column(children: [
                   Container(
@@ -214,9 +323,7 @@ Widget caseSummaryCard(Map<String, dynamic> data) {
                     child: DropdownButtonFormField<String>(
                       value: selectedFilter,
                       onChanged: (v) => setState(() => selectedFilter = v!),
-                      items: filterOptions.map((label) =>
-                        DropdownMenuItem(value: label, child: Text(label))
-                      ).toList(),
+                      items: filterOptions.map((label) => DropdownMenuItem(value: label, child: Text(label))).toList(),
                       decoration: InputDecoration(
                         labelText: 'Filter by',
                         border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
@@ -227,14 +334,14 @@ Widget caseSummaryCard(Map<String, dynamic> data) {
                   ),
                   Expanded(
                     child: isLoading
-                      ? Center(child: CircularProgressIndicator())
-                      : getFilteredCases().isEmpty
-                          ? Center(child: Text('No cases match your filter.'))
-                          : ListView.builder(
-                              padding: const EdgeInsets.symmetric(vertical: 16),
-                              itemCount: getFilteredCases().length,
-                              itemBuilder: (ctx, i) => caseSummaryCard(getFilteredCases()[i]),
-                            ),
+                        ? const Center(child: CircularProgressIndicator())
+                        : getFilteredCases().isEmpty
+                            ? const Center(child: Text('No cases match your filter.'))
+                            : ListView.builder(
+                                padding: const EdgeInsets.symmetric(vertical: 16),
+                                itemCount: getFilteredCases().length,
+                                itemBuilder: (ctx, i) => caseSummaryCard(getFilteredCases()[i]),
+                              ),
                   ),
                 ]),
               ),
