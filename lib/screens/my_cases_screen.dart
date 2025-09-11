@@ -12,6 +12,7 @@ import 'package:intl/intl.dart';
 import '../widgets/my_cases_detail_bottom_view.dart';
 import 'archived_cases_screen.dart';
 import 'case_types_stats.dart';
+import 'dashboard_screen.dart';
 
 class MyCasesScreen extends StatefulWidget {
   const MyCasesScreen({super.key});
@@ -328,6 +329,15 @@ Widget caseSummaryCard(Map<String, dynamic> data) {
             DrawerHeader(
               decoration: BoxDecoration(color: Colors.teal),
               child: const Text('Health Case Tracker', style: TextStyle(color: Colors.white, fontSize: 20)),
+            ),
+             ListTile(
+              leading: const Icon(Icons.dashboard),
+              title: const Text('Dashboard'),
+              onTap: () {
+                Navigator.pop(context);
+                Navigator.push(context, MaterialPageRoute(builder: (_) => const DashboardScreen()))
+                    .then((_) => fetchMyCases()); // refresh when returning
+              },
             ),
             ListTile(leading: const Icon(Icons.assignment), title: const Text('My Cases'), onTap: () => Navigator.pop(context)),
             ListTile(
