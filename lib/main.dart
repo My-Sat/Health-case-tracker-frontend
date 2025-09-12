@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import 'screens/home_screen.dart';
 import 'screens/login_screen.dart';
 import 'screens/dashboard_screen.dart';
 import 'providers/auth_provider.dart';
+import 'screens/admin_dashboard.dart';
 
 void main() {
   runApp(
@@ -21,7 +21,7 @@ class MyApp extends StatelessWidget {
     final auth = Provider.of<AuthProvider>(context, listen: false);
     await auth.tryAutoLogin();
     if (!auth.isLoggedIn) return LoginScreen();
-    return auth.user!.role == 'admin' ? HomeScreen() : DashboardScreen();
+    return auth.user!.role == 'admin' ? AdminDashboardScreen() : DashboardScreen();
   }
 
   @override

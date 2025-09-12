@@ -3,10 +3,10 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../providers/auth_provider.dart';
-import 'home_screen.dart';
 import 'register_screen.dart';
 import 'dashboard_screen.dart';
 import 'forgot_password_screen.dart';
+import 'admin_dashboard.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -49,7 +49,7 @@ class _LoginScreenState extends State<LoginScreen> {
       Navigator.pushReplacement(
         context,
         MaterialPageRoute(
-          builder: (_) => role == 'admin' ? const HomeScreen() : const DashboardScreen(),
+          builder: (_) => role == 'admin' ? const AdminDashboardScreen() : const DashboardScreen(),
         ),
       );
     } catch (e) {
