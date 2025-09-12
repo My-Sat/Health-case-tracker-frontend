@@ -5,7 +5,7 @@ import 'package:provider/provider.dart';
 import '../providers/auth_provider.dart';
 import 'home_screen.dart';
 import 'register_screen.dart';
-import 'my_cases_screen.dart';
+import 'dashboard_screen.dart';
 import 'forgot_password_screen.dart';
 
 class LoginScreen extends StatefulWidget {
@@ -49,7 +49,7 @@ class _LoginScreenState extends State<LoginScreen> {
       Navigator.pushReplacement(
         context,
         MaterialPageRoute(
-          builder: (_) => role == 'admin' ? const HomeScreen() : const MyCasesScreen(),
+          builder: (_) => role == 'admin' ? const HomeScreen() : const DashboardScreen(),
         ),
       );
     } catch (e) {

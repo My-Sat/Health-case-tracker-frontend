@@ -1,8 +1,3 @@
-// lib/screens/dashboard_screen.dart
-// A mobile dashboard with counts, case-type summary and an in-page My Cases tab.
-// Updated: case type cards reduced so three cards fit per row (3 columns).
-// Existing logic preserved (expand/collapse, "View Details", inline "View more/Show less", badges, bottom nav).
-
 import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
@@ -15,7 +10,7 @@ import '../widgets/my_cases_detail_bottom_view.dart';
 import 'archived_cases_screen.dart';
 import 'my_cases_screen.dart';
 import 'login_screen.dart';
-
+import 'create_case_screen.dart';
 
 class DashboardScreen extends StatefulWidget {
   const DashboardScreen({super.key});
@@ -30,6 +25,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
   int _totalCases = 0;
   int _myCasesCount = 0;
+  int _myArchivedCount = 0; // <-- new
   int _confirmedCount = 0;
 
   // all case types returned by the backend (sorted descending by total)
@@ -124,10 +120,25 @@ class _DashboardScreenState extends State<DashboardScreen> {
       myCount = 0;
     }
 
+    // New: fetch my archived count by hitting /cases/archived (backend returns only officer's archived if not admin)
+    int myArchived = 0;
+    try {
+      final archivedResp = await http.get(Uri.parse('$_base/cases/archived'), headers: {'Authorization': 'Bearer $token'});
+      if (archivedResp.statusCode == 200) {
+        final list = jsonDecode(archivedResp.body) as List<dynamic>;
+        myArchived = list.length;
+      } else {
+        myArchived = 0;
+      }
+    } catch (_) {
+      myArchived = 0;
+    }
+
     setState(() {
       _totalCases = allCases.length;
       _confirmedCount = confirmed;
       _myCasesCount = myCount;
+      _myArchivedCount = myArchived; // update state
     });
   }
 
@@ -194,9 +205,71 @@ class _DashboardScreenState extends State<DashboardScreen> {
       );
     }
 
+    // Custom card for "My cases" which also shows "My archived cases" count beside it.
+    Widget myCasesCard() {
+      return Expanded(
+        child: Card(
+          elevation: 2,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+          child: Container(
+            padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 10),
+            child: Row(
+              children: [
+                // Main tappable area for "My cases"
+                Expanded(
+                  child: GestureDetector(
+                    onTap: () => setState(() => _selectedIndex = 1),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(_myCasesCount.toString(), style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+                        const SizedBox(height: 6),
+                        const Text('My cases', style: TextStyle(fontSize: 12, color: Colors.black87)),
+                      ],
+                    ),
+                  ),
+                ),
+
+                // Vertical divider
+                Container(width: 1, height: 36, color: Colors.grey.shade200, margin: const EdgeInsets.symmetric(horizontal: 8)),
+
+                // Archived badge/tile (small, tappable)
+                GestureDetector(
+                  onTap: () async {
+                    await Navigator.push(context, MaterialPageRoute(builder: (_) => const ArchivedCasesScreen()));
+                    _refreshAll();
+                  },
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+                    decoration: BoxDecoration(
+                      color: Colors.teal.shade50,
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                    child: Column(
+                      children: [
+                        Text(
+                          _myArchivedCount.toString(),
+                          style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: Colors.teal),
+                        ),
+                        const SizedBox(height: 4),
+                        Text(
+                          'Archived',
+                          style: TextStyle(fontSize: 11, color: Colors.grey.shade800),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      );
+    }
+
     return Row(
       children: [
-        smallCard(label: 'My cases', count: _myCasesCount, onTap: () => setState(() => _selectedIndex = 1)),
+        myCasesCard(),
         const SizedBox(width: 8),
         smallCard(label: 'All cases', count: _totalCases, onTap: _openAllCases),
         const SizedBox(width: 8),
@@ -257,10 +330,10 @@ class _DashboardScreenState extends State<DashboardScreen> {
         ),
         const SizedBox(height: 12),
 
-        // Top counts cards
+        // Top counts cards — now stretches full width like the case type summary container.
         Container(
-          margin: const EdgeInsets.symmetric(horizontal: 16),
-          padding: const EdgeInsets.all(12),
+          width: double.infinity,
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
           decoration: BoxDecoration(
             color: Colors.white.withOpacity(0.96),
             borderRadius: BorderRadius.circular(12),
@@ -367,76 +440,76 @@ class _DashboardScreenState extends State<DashboardScreen> {
         centerTitle: true,
       ),
       drawer: Drawer(
-    child: ListView(
-      padding: EdgeInsets.zero,
-      children: [
-        DrawerHeader(
-          decoration: BoxDecoration(color: Colors.teal),
-          child: const Text('Health Case Tracker',
-              style: TextStyle(color: Colors.white, fontSize: 20)),
+        child: ListView(
+          padding: EdgeInsets.zero,
+          children: [
+            DrawerHeader(
+              decoration: BoxDecoration(color: Colors.teal),
+              child: const Text('Health Case Tracker',
+                  style: TextStyle(color: Colors.white, fontSize: 20)),
+            ),
+            ListTile(
+              leading: const Icon(Icons.dashboard),
+              title: const Text('Dashboard'),
+              onTap: () {
+                Navigator.pop(context);
+                setState(() => _selectedIndex = 0); // stay in Dashboard tab
+              },
+            ),
+            ListTile(
+              leading: const Icon(Icons.assignment),
+              title: const Text('My Cases'),
+              onTap: () {
+                Navigator.pop(context);
+                Navigator.push(context,
+                    MaterialPageRoute(builder: (_) => const MyCasesScreen()));
+              },
+            ),
+            ListTile(
+              leading: const Icon(Icons.list),
+              title: const Text('All Cases'),
+              onTap: () {
+                Navigator.pop(context);
+                Navigator.push(context,
+                    MaterialPageRoute(builder: (_) => const AllCasesScreen()));
+              },
+            ),
+            ListTile(
+              leading: const Icon(Icons.archive_outlined),
+              title: const Text('Archived Cases'),
+              onTap: () {
+                Navigator.pop(context);
+                Navigator.push(context,
+                    MaterialPageRoute(builder: (_) => const ArchivedCasesScreen()));
+              },
+            ),
+            ListTile(
+              leading: const Icon(Icons.category),
+              title: const Text('Case Types Stats'),
+              onTap: () {
+                Navigator.pop(context);
+                Navigator.push(context,
+                    MaterialPageRoute(builder: (_) => const CaseTypeStatsScreen()));
+              },
+            ),
+            const Divider(),
+            ListTile(
+              leading: const Icon(Icons.logout),
+              title: const Text('Logout'),
+              onTap: () async {
+                final auth =
+                    Provider.of<AuthProvider>(context, listen: false);
+                await auth.logout();
+                Navigator.pushAndRemoveUntil(
+                  context,
+                  MaterialPageRoute(builder: (_) => LoginScreen()),
+                  (route) => false,
+                );
+              },
+            ),
+          ],
         ),
-        ListTile(
-          leading: const Icon(Icons.dashboard),
-          title: const Text('Dashboard'),
-          onTap: () {
-            Navigator.pop(context);
-            setState(() => _selectedIndex = 0); // stay in Dashboard tab
-          },
-        ),
-        ListTile(
-          leading: const Icon(Icons.assignment),
-          title: const Text('My Cases'),
-          onTap: () {
-            Navigator.pop(context);
-            Navigator.push(context,
-                MaterialPageRoute(builder: (_) => const MyCasesScreen()));
-          },
-        ),
-        ListTile(
-          leading: const Icon(Icons.list),
-          title: const Text('All Cases'),
-          onTap: () {
-            Navigator.pop(context);
-            Navigator.push(context,
-                MaterialPageRoute(builder: (_) => const AllCasesScreen()));
-          },
-        ),
-        ListTile(
-          leading: const Icon(Icons.archive_outlined),
-          title: const Text('Archived Cases'),
-          onTap: () {
-            Navigator.pop(context);
-            Navigator.push(context,
-                MaterialPageRoute(builder: (_) => const ArchivedCasesScreen()));
-          },
-        ),
-        ListTile(
-          leading: const Icon(Icons.category),
-          title: const Text('Case Types Stats'),
-          onTap: () {
-            Navigator.pop(context);
-            Navigator.push(context,
-                MaterialPageRoute(builder: (_) => const CaseTypeStatsScreen()));
-          },
-        ),
-        const Divider(),
-        ListTile(
-          leading: const Icon(Icons.logout),
-          title: const Text('Logout'),
-          onTap: () async {
-            final auth =
-                Provider.of<AuthProvider>(context, listen: false);
-            await auth.logout();
-            Navigator.pushAndRemoveUntil(
-              context,
-              MaterialPageRoute(builder: (_) => LoginScreen()),
-              (route) => false,
-            );
-          },
-        ),
-      ],
-    ),
-  ),
+      ),
       body: Container(
         decoration: BoxDecoration(
           gradient: LinearGradient(colors: [Colors.teal.shade800, Colors.teal.shade300], begin: Alignment.topCenter, end: Alignment.bottomCenter),
@@ -487,7 +560,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
   }
 }
 
-/// Simple model used by the dashboard to display case type summary
+///// Simple model used by the dashboard to display case type summary
 class CaseTypeShort {
   final String id;
   final String name;
@@ -614,6 +687,91 @@ class _MyCasesPanelState extends State<_MyCasesPanel> {
       });
       ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Failed to load cases')));
     }
+  }
+
+  Future<void> _navigateToCreateCase() async {
+    await Navigator.push(
+      context,
+      MaterialPageRoute(builder: (_) => const CreateCaseScreen()),
+    );
+    await fetchMyCases();
+  }
+
+  Widget _buildCenterAddButton() {
+    // Stylish centered circular button for users with no cases
+    return Center(
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          GestureDetector(
+            onTap: _navigateToCreateCase,
+            child: Container(
+              width: 140,
+              height: 140,
+              decoration: BoxDecoration(
+                gradient: const LinearGradient(
+                  colors: [Color(0xFF00796B), Color(0xFF26A69A)],
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                ),
+                shape: BoxShape.circle,
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.teal.shade700.withOpacity(0.4),
+                    blurRadius: 18,
+                    offset: const Offset(0, 8),
+                  ),
+                ],
+              ),
+              child: const Center(
+                child: Icon(Icons.add, size: 68, color: Colors.white),
+              ),
+            ),
+          ),
+          const SizedBox(height: 16),
+          const Text(
+            'Report your first case',
+            style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildRightAddButton() {
+    // Small circular add button placed to the right below the filter bar
+    return Padding(
+      padding: const EdgeInsets.only(right: 16.0, top: 8.0),
+      child: Align(
+        alignment: Alignment.centerRight,
+        child: Material(
+          color: Colors.transparent,
+          child: InkWell(
+            onTap: _navigateToCreateCase,
+            borderRadius: BorderRadius.circular(28),
+            child: Container(
+              padding: const EdgeInsets.all(8),
+              decoration: BoxDecoration(
+                gradient: const LinearGradient(
+                  colors: [Color(0xFF00796B), Color(0xFF26A69A)],
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                ),
+                shape: BoxShape.circle,
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.teal.shade700.withOpacity(0.25),
+                    blurRadius: 8,
+                    offset: const Offset(0, 4),
+                  ),
+                ],
+              ),
+              child: const Icon(Icons.add, color: Colors.white, size: 26),
+            ),
+          ),
+        ),
+      ),
+    );
   }
 
   Future<void> updateStatus(String caseId, [String? status, String? patientStatus]) async {
@@ -827,16 +985,24 @@ class _MyCasesPanelState extends State<_MyCasesPanel> {
                     decoration: InputDecoration(labelText: 'Filter', border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)), filled: true, fillColor: Colors.grey[50]),
                   ),
                 ),
+
+                // If user has cases, show a small add button aligned to the right
+                if (!isLoading && myCases.isNotEmpty) _buildRightAddButton(),
+
                 Expanded(
                   child: isLoading
                       ? const Center(child: CircularProgressIndicator())
-                      : filteredCases.isEmpty
-                          ? const Center(child: Text('No cases match your filter.'))
-                          : ListView.builder(
-                              padding: const EdgeInsets.symmetric(vertical: 16),
-                              itemCount: filteredCases.length,
-                              itemBuilder: (ctx, i) => caseSummaryCard(filteredCases[i]),
-                            ),
+                      : myCases.isEmpty
+                          // User has no cases at all -> show large centered stylish "+" to create a case
+                          ? _buildCenterAddButton()
+                          // User has some cases -> show filtered list (existing logic intact)
+                          : filteredCases.isEmpty
+                              ? const Center(child: Text('No cases match your filter.'))
+                              : ListView.builder(
+                                  padding: const EdgeInsets.symmetric(vertical: 16),
+                                  itemCount: filteredCases.length,
+                                  itemBuilder: (ctx, i) => caseSummaryCard(filteredCases[i]),
+                                ),
                 ),
               ],
             ),

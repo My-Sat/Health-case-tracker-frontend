@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'screens/home_screen.dart';
 import 'screens/login_screen.dart';
-import 'screens/my_cases_screen.dart';
+import 'screens/dashboard_screen.dart';
 import 'providers/auth_provider.dart';
 
 void main() {
@@ -21,7 +21,7 @@ class MyApp extends StatelessWidget {
     final auth = Provider.of<AuthProvider>(context, listen: false);
     await auth.tryAutoLogin();
     if (!auth.isLoggedIn) return LoginScreen();
-    return auth.user!.role == 'admin' ? HomeScreen() : MyCasesScreen();
+    return auth.user!.role == 'admin' ? HomeScreen() : DashboardScreen();
   }
 
   @override
@@ -34,7 +34,7 @@ class MyApp extends StatelessWidget {
         future: _determineStartScreen(context),
         builder: (ctx, snapshot) {
           if (snapshot.connectionState == ConnectionState.waiting) {
-            return Scaffold(body: Center(child: CircularProgressIndicator()));
+            return const Scaffold(body: Center(child: CircularProgressIndicator()));
           } else {
             return snapshot.data!;
           }
