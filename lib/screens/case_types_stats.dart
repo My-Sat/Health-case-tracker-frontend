@@ -627,7 +627,6 @@ class _CaseTypeStatsScreenState extends State<CaseTypeStatsScreen> {
               const SizedBox(height: 8),
               // FILTER CONTAINER (single-line filters)
               Container(
-                margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
                 padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
                 decoration: BoxDecoration(
                   color: Colors.white.withOpacity(0.96),

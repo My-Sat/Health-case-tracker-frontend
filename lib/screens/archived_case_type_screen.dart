@@ -110,14 +110,31 @@ class _ArchivedCaseTypeScreenState extends State<ArchivedCaseTypeScreen> {
         child: SafeArea(
           child: Column(
             children: [
-              const SizedBox(height: 16),
-              const Center(
-                child: Text(
-                  'Archived Case Types',
-                  style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold, color: Colors.white),
+              // Top row with back button and centered title
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 8.0, vertical: 8.0),
+                child: Row(
+                  children: [
+                    IconButton(
+                      icon: const Icon(Icons.arrow_back, color: Colors.white),
+                      onPressed: () => Navigator.of(context).pop(),
+                    ),
+                    const Expanded(
+                      child: Center(
+                        child: Text(
+                          'Archived Case Types',
+                          style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold, color: Colors.white),
+                        ),
+                      ),
+                    ),
+                    // spacer to visually balance the back button
+                    const SizedBox(width: 48),
+                  ],
                 ),
               ),
-              const SizedBox(height: 16),
+
+              const SizedBox(height: 8),
+
               Expanded(
                 child: Container(
                   decoration: BoxDecoration(

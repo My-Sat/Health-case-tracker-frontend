@@ -132,14 +132,33 @@ class _ArchivedFacilityScreenState extends State<ArchivedFacilityScreen> {
         child: SafeArea(
           child: Column(
             children: [
-              const SizedBox(height: 16),
-              const Center(
-                child: Text(
-                  'Archived Facilities',
-                  style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold, color: Colors.white),
+              // Top row with back button and centered title (keeps previous visual styling)
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 8.0, vertical: 8.0),
+                child: Row(
+                  children: [
+                    // Back button
+                    IconButton(
+                      icon: const Icon(Icons.arrow_back, color: Colors.white),
+                      onPressed: () => Navigator.of(context).pop(),
+                    ),
+                    // Centered title
+                    const Expanded(
+                      child: Center(
+                        child: Text(
+                          'Archived Facilities',
+                          style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold, color: Colors.white),
+                        ),
+                      ),
+                    ),
+                    // Spacer to visually balance the back button
+                    SizedBox(width: 48),
+                  ],
                 ),
               ),
-              const SizedBox(height: 16),
+
+              const SizedBox(height: 8),
+
               Expanded(
                 child: Container(
                   decoration: BoxDecoration(

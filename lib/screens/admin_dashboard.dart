@@ -12,6 +12,8 @@ import 'create_case_type_screen.dart';
 import 'case_type_list_screen.dart';
 import 'archived_case_type_screen.dart';
 import 'create_facility_screen.dart';
+import 'create_case_screen.dart';
+import 'my_cases_screen.dart';
 
 class AdminDashboardScreen extends StatefulWidget {
   const AdminDashboardScreen({super.key});
@@ -21,6 +23,8 @@ class AdminDashboardScreen extends StatefulWidget {
 }
 
 class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
+  final GlobalKey<ScaffoldState> _scaffoldKey = GlobalKey<ScaffoldState>();
+
   bool _loading = true;
   String? _error;
 
@@ -242,6 +246,10 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
     await _refreshAll();
   }
 
+  // helper to check admin role (used to render drawer items same as HomeScreen)
+  bool authIsAdmin(BuildContext context) =>
+      Provider.of<AuthProvider>(context, listen: false).user?.role == 'admin';
+
   Widget _buildTopCountsRow() {
     Widget smallCard({required String label, required int count, required VoidCallback? onTap}) {
       return Expanded(
@@ -456,7 +464,6 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
   }
 
   Widget _dashboardContent() {
-
     return Column(
       children: [
         const SizedBox(height: 12),
@@ -570,53 +577,124 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final String appBarTitle = _selectedIndex == 0 ? 'Admin Dashboard' : 'Cases';
+    // Show full AppBar only on the Dashboard tab; hide it on the Cases tab so there's no empty space.
+    final bool showAppBar = _selectedIndex == 0;
 
     return Scaffold(
-      appBar: AppBar(
-        title: Text(appBarTitle),
-        centerTitle: true,
-      ),
+      key: _scaffoldKey,
+      appBar: showAppBar
+          ? AppBar(
+              title: const Text('Admin Dashboard'),
+              centerTitle: true,
+            )
+          : null,
+      // keep drawer as before (accessible via overlay menu button when AppBar is hidden).
       drawer: Drawer(
         child: ListView(
           padding: EdgeInsets.zero,
           children: [
-            DrawerHeader(
+            const DrawerHeader(
               decoration: BoxDecoration(color: Colors.teal),
-              child: const Text('Health Case Tracker', style: TextStyle(color: Colors.white, fontSize: 20)),
+              child: Text('Health Case Tracker', style: TextStyle(color: Colors.white, fontSize: 20)),
             ),
-            ListTile(
-              leading: const Icon(Icons.dashboard),
-              title: const Text('Dashboard'),
-              onTap: () {
-                Navigator.pop(context);
-                setState(() => _selectedIndex = 0);
-              },
-            ),
-            ListTile(
-              leading: const Icon(Icons.business),
-              title: const Text('Facilities'),
-              onTap: () {
-                Navigator.pop(context);
-                Navigator.push(context, MaterialPageRoute(builder: (_) => const FacilityListScreen()));
-              },
-            ),
-            ListTile(
-              leading: const Icon(Icons.list),
-              title: const Text('All Cases'),
-              onTap: () {
-                Navigator.pop(context);
-                Navigator.push(context, MaterialPageRoute(builder: (_) => const AllCasesScreen()));
-              },
-            ),
-            ListTile(
+            if (authIsAdmin(context))
+              ExpansionTile(
+                leading: const Icon(Icons.business),
+                title: const Text('Facility'),
+                children: [
+                  ListTile(
+                    leading: const Icon(Icons.add_business),
+                    title: const Text('Add Facility'),
+                    onTap: () async {
+                      Navigator.pop(context);
+                      await _openCreateFacility();
+                    },
+                  ),
+                  ListTile(
+                    leading: const Icon(Icons.list),
+                    title: const Text('Facilities'),
+                    onTap: () async {
+                      Navigator.pop(context); // close drawer first
+                      await _openFacilities();
+                    },
+                  ),
+                ],
+              ),
+            ExpansionTile(
               leading: const Icon(Icons.category),
-              title: const Text('Case Types Stats'),
-              onTap: () {
-                Navigator.pop(context);
-                Navigator.push(context, MaterialPageRoute(builder: (_) => const CaseTypeStatsScreen()));
-              },
+              title: const Text('Cases'),
+              children: [
+                ListTile(
+                  leading: const Icon(Icons.home),
+                  title: const Text('Reported'),
+                  onTap: () => Navigator.pop(context),
+                ),
+                ListTile(
+                  leading: const Icon(Icons.add),
+                  title: const Text('Add Case Type'),
+                  onTap: () async {
+                    Navigator.pop(context);
+                    await _openCreateCaseType();
+                  },
+                ),
+                ListTile(
+                  leading: const Icon(Icons.list),
+                  title: const Text('Case Types'),
+                  onTap: () async {
+                    Navigator.pop(context);
+                    await _openCaseTypesList();
+                  },
+                ),
+              ],
             ),
+            ExpansionTile(
+              leading: const Icon(Icons.archive),
+              title: const Text('Archives'),
+              children: [
+                ListTile(
+                  leading: const Icon(Icons.archive_outlined),
+                  title: const Text('Archived Facilities'),
+                  onTap: () async {
+                    Navigator.pop(context);
+                    await _openArchivedFacilities();
+                  },
+                ),
+                ListTile(
+                  leading: const Icon(Icons.archive_outlined),
+                  title: const Text('Archived Case Types'),
+                  onTap: () async {
+                    Navigator.pop(context);
+                    await _openArchivedCaseTypes();
+                  },
+                ),
+              ],
+            ),
+            if (!authIsAdmin(context)) ...[
+              ListTile(
+                leading: const Icon(Icons.add),
+                title: const Text('Report Case'),
+                onTap: () {
+                  Navigator.pop(context);
+                  Navigator.push(context, MaterialPageRoute(builder: (_) => const CreateCaseScreen()));
+                },
+              ),
+              ListTile(
+                leading: const Icon(Icons.assignment),
+                title: const Text('My Cases'),
+                onTap: () {
+                  Navigator.pop(context);
+                  Navigator.push(context, MaterialPageRoute(builder: (_) => const MyCasesScreen()));
+                },
+              ),
+              ListTile(
+                leading: const Icon(Icons.list),
+                title: const Text('All Cases'),
+                onTap: () {
+                  Navigator.pop(context);
+                  Navigator.push(context, MaterialPageRoute(builder: (_) => const AllCasesScreen()));
+                },
+              ),
+            ],
             const Divider(),
             ListTile(
               leading: const Icon(Icons.logout),
@@ -634,22 +712,52 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
           ],
         ),
       ),
-      body: Container(
-        decoration: BoxDecoration(
-          gradient: LinearGradient(colors: [Colors.teal.shade800, Colors.teal.shade300], begin: Alignment.topCenter, end: Alignment.bottomCenter),
-        ),
-        child: SafeArea(
-          child: _loading
-              ? const Center(child: CircularProgressIndicator())
-              : IndexedStack(
-                  index: _selectedIndex,
-                  children: [
-                    _dashboardContent(),
-                    // embedded AllCasesScreen so admin can switch tabs without leaving dashboard
-                    const AllCasesScreen(),
-                  ],
+      body: Stack(
+        children: [
+          Container(
+            decoration: BoxDecoration(
+              gradient: LinearGradient(colors: [Colors.teal.shade800, Colors.teal.shade300], begin: Alignment.topCenter, end: Alignment.bottomCenter),
+            ),
+            child: SafeArea(
+              child: _loading
+                  ? const Center(child: CircularProgressIndicator())
+                  : IndexedStack(
+                      index: _selectedIndex,
+                      children: [
+                        _dashboardContent(),
+                        // embedded AllCasesScreen so admin can switch tabs without leaving dashboard
+                        const AllCasesScreen(),
+                      ],
+                    ),
+            ),
+          ),
+
+          // If AppBar is hidden (Cases tab), show a small floating menu button to open drawer
+          if (!showAppBar)
+            Positioned(
+              top: 12,
+              left: 12,
+              child: SafeArea(
+                child: GestureDetector(
+                  onTap: () => _scaffoldKey.currentState?.openDrawer(),
+                  child: Container(
+                    width: 44,
+                    height: 44,
+                    decoration: BoxDecoration(
+                      color: Colors.white.withOpacity(0.96),
+                      borderRadius: BorderRadius.circular(12),
+                      boxShadow: [
+                        BoxShadow(color: Colors.black.withOpacity(0.06), blurRadius: 4, offset: const Offset(0, 2)),
+                      ],
+                    ),
+                    child: Center(
+                      child: Icon(Icons.menu, color: Colors.teal.shade800),
+                    ),
+                  ),
                 ),
-        ),
+              ),
+            ),
+        ],
       ),
       bottomNavigationBar: BottomNavigationBar(
         type: BottomNavigationBarType.fixed,
