@@ -79,6 +79,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
     }
   }
 
+  /// When a region is selected: load districts under that region ONLY.
   Future<void> _loadDistricts(String region) async {
     setState(() {
       selectedDistrict = null;
@@ -92,8 +93,10 @@ class _RegisterScreenState extends State<RegisterScreen> {
 
     try {
       districts = await ApiService.fetchDistricts(region);
-      facilities = await ApiService.fetchFacilitiesUnder(region: region);
-      setState(() => isLoading = false);
+      setState(() {
+        fetchError = false;
+        isLoading = false;
+      });
     } catch (_) {
       setState(() {
         fetchError = true;
@@ -102,6 +105,9 @@ class _RegisterScreenState extends State<RegisterScreen> {
     }
   }
 
+  /// When a district is selected: load sub-districts under that district (if any)
+  /// AND load ALL facilities under that district (this includes facilities that
+  /// are directly under the district as well as those within sub-districts).
   Future<void> _loadSubDistricts(String district) async {
     setState(() {
       selectedSubDistrict = null;
@@ -113,13 +119,21 @@ class _RegisterScreenState extends State<RegisterScreen> {
 
     try {
       subDistricts = await ApiService.fetchSubDistricts(selectedRegion!, district);
-      if (subDistricts.isEmpty) {
-        facilities = await ApiService.fetchFacilitiesUnder(
-          region: selectedRegion!,
-          district: district,
-        );
-      }
-      setState(() => isLoading = false);
+
+      // Always load facilities under the district (this returns facilities
+      // with district = districtDoc._id; those include ones that also have
+      // subDistrict set). This meets the requirement to show district-level
+      // facilities (including ones assigned to sub-districts) when a district
+      // is selected.
+      facilities = await ApiService.fetchFacilitiesUnder(
+        region: selectedRegion!,
+        district: district,
+      );
+
+      setState(() {
+        fetchError = false;
+        isLoading = false;
+      });
     } catch (_) {
       setState(() {
         fetchError = true;
@@ -128,6 +142,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
     }
   }
 
+  /// When a sub-district is selected: filter facilities to only those under the sub-district.
   Future<void> _loadFacilitiesUnderSubDistrict(String subDistrict) async {
     setState(() {
       selectedFacilityId = null;
@@ -460,13 +475,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                           setState(() => selectedSubDistrict = val);
                           if (val != null) _loadFacilitiesUnderSubDistrict(val);
                         },
-                        validator: (val) {
-                          if (subDistricts.isNotEmpty &&
-                              (val == null || val.isEmpty)) {
-                            return 'Sub-district is required';
-                          }
-                          return null;
-                        },
+                        
                       ),
                     if (subDistricts.isNotEmpty) const SizedBox(height: 16),
 

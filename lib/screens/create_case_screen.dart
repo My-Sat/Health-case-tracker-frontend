@@ -251,6 +251,134 @@ class _CreateCaseScreenState extends State<CreateCaseScreen> {
     } catch (_) {}
   }
 
+  // ---------- validation helpers (call server endpoints) ----------
+  Future<bool> _validateRegionOnServer(String name) async {
+    if (name.trim().isEmpty) return true;
+    final auth = Provider.of<AuthProvider>(context, listen: false);
+    final token = auth.user!.token;
+    try {
+      final res = await http.get(
+        Uri.parse('${ApiService.baseUrl}/validate/region?name=${Uri.encodeQueryComponent(name)}'),
+        headers: {'Authorization': 'Bearer $token'},
+      );
+      if (res.statusCode == 200) {
+        final body = jsonDecode(res.body);
+        if (body['exists'] == true) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text(body['message'] ?? 'Name already exists')),
+          );
+          return false;
+        }
+        return true;
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Validation failed (region)')),
+        );
+        return false;
+      }
+    } catch (err) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Validation error: $err')),
+      );
+      return false;
+    }
+  }
+
+  Future<bool> _validateDistrictOnServer(String name, String regionRef) async {
+    if (name.trim().isEmpty) return true;
+    if (regionRef.trim().isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Region required to validate district')));
+      return false;
+    }
+    final auth = Provider.of<AuthProvider>(context, listen: false);
+    final token = auth.user!.token;
+    try {
+      final res = await http.get(
+        Uri.parse('${ApiService.baseUrl}/validate/district?name=${Uri.encodeQueryComponent(name)}&region=${Uri.encodeQueryComponent(regionRef)}'),
+        headers: {'Authorization': 'Bearer $token'},
+      );
+      if (res.statusCode == 200) {
+        final body = jsonDecode(res.body);
+        if (body['exists'] == true) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text(body['message'] ?? 'Name already exists')),
+          );
+          return false;
+        }
+        return true;
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Validation failed (district)')));
+        return false;
+      }
+    } catch (err) {
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Validation error: $err')));
+      return false;
+    }
+  }
+
+  Future<bool> _validateSubDistrictOnServer(String name, String districtRef) async {
+    if (name.trim().isEmpty) return true;
+    if (districtRef.trim().isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('District required to validate sub-district')));
+      return false;
+    }
+    final auth = Provider.of<AuthProvider>(context, listen: false);
+    final token = auth.user!.token;
+    try {
+      final res = await http.get(
+        Uri.parse('${ApiService.baseUrl}/validate/subdistrict?name=${Uri.encodeQueryComponent(name)}&district=${Uri.encodeQueryComponent(districtRef)}'),
+        headers: {'Authorization': 'Bearer $token'},
+      );
+      if (res.statusCode == 200) {
+        final body = jsonDecode(res.body);
+        if (body['exists'] == true) {
+          ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(body['message'] ?? 'Name already exists')));
+          return false;
+        }
+        return true;
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Validation failed (sub-district)')));
+        return false;
+      }
+    } catch (err) {
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Validation error: $err')));
+      return false;
+    }
+  }
+
+  Future<bool> _validateCommunityOnServer(String name, {String? districtRef, String? subDistrictRef}) async {
+    if (name.trim().isEmpty) return true;
+    if ((districtRef == null || districtRef.trim().isEmpty) && (subDistrictRef == null || subDistrictRef.trim().isEmpty)) {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('District or Sub-district required to validate community')));
+      return false;
+    }
+    final auth = Provider.of<AuthProvider>(context, listen: false);
+    final token = auth.user!.token;
+    try {
+      final query = StringBuffer('${ApiService.baseUrl}/validate/community?name=${Uri.encodeQueryComponent(name)}');
+      if (subDistrictRef != null && subDistrictRef.trim().isNotEmpty) {
+        query.write('&subDistrict=${Uri.encodeQueryComponent(subDistrictRef)}');
+      } else if (districtRef != null && districtRef.trim().isNotEmpty) {
+        query.write('&district=${Uri.encodeQueryComponent(districtRef)}');
+      }
+      final res = await http.get(Uri.parse(query.toString()), headers: {'Authorization': 'Bearer $token'});
+      if (res.statusCode == 200) {
+        final body = jsonDecode(res.body);
+        if (body['exists'] == true) {
+          ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(body['message'] ?? 'Name already exists')));
+          return false;
+        }
+        return true;
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Validation failed (community)')));
+        return false;
+      }
+    } catch (err) {
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Validation error: $err')));
+      return false;
+    }
+  }
+
   // ---------- submit ----------
   Future<void> submitCase() async {
     if (selectedCaseType == null) {
@@ -271,6 +399,57 @@ class _CreateCaseScreenState extends State<CreateCaseScreen> {
       }
     }
 
+    // --- VALIDATIONS BEFORE SUBMIT ---
+    // Validate new names only if user is adding (not selecting existing)
+    if (!useFacilityCommunity) {
+      // Region
+      if (addingRegion) {
+        final name = regionCtrl.text.trim();
+        final ok = await _validateRegionOnServer(name);
+        if (!ok) return;
+      }
+
+      // District
+      if (addingDistrict) {
+        final name = districtCtrl.text.trim();
+        final parentRegion = addingRegion ? regionCtrl.text.trim() : (selectedRegion ?? '');
+        if (parentRegion.isEmpty) {
+          ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Region required for district')));
+          return;
+        }
+        final ok = await _validateDistrictOnServer(name, parentRegion);
+        if (!ok) return;
+      }
+
+      // Sub-district
+      if (addingSubDistrict) {
+        final name = subDistrictCtrl.text.trim();
+        final parentDistrict = addingDistrict ? districtCtrl.text.trim() : (selectedDistrict ?? '');
+        if (parentDistrict.isEmpty) {
+          ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('District required for sub-district')));
+          return;
+        }
+        final ok = await _validateSubDistrictOnServer(name, parentDistrict);
+        if (!ok) return;
+      }
+
+      // Community
+      if (addingCommunity) {
+        final name = communityCtrl.text.trim();
+        String? parentSub = addingSubDistrict ? subDistrictCtrl.text.trim() : selectedSubDistrict;
+        String? parentDistrict = addingDistrict ? districtCtrl.text.trim() : selectedDistrict;
+
+        // If user supplied a subDistrict (added or selected) prefer that; else district
+        if ((parentSub == null || parentSub.isEmpty) && (parentDistrict == null || parentDistrict.isEmpty)) {
+          ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('District or Sub-district required for community')));
+          return;
+        }
+        final ok = await _validateCommunityOnServer(name, districtRef: parentDistrict, subDistrictRef: parentSub);
+        if (!ok) return;
+      }
+    }
+
+    // ---- proceed to submit ----
     setState(() => isSubmitting = true);
     final auth = Provider.of<AuthProvider>(context, listen: false);
     final token = auth.user!.token;
