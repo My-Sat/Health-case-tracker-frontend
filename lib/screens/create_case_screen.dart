@@ -177,7 +177,13 @@ class _CreateCaseScreenState extends State<CreateCaseScreen> {
       setState(() => selectedSubDistrict = preSubDistrict);
     }
 
-    await loadCommunities(preRegion, preDistrict, preSubDistrict.isEmpty ? null : preSubDistrict);
+    if (preSubDistrict.isEmpty) {
+      // No sub-district specified: load district-only communities (exclude sub-district communities)
+      await _loadDistrictLevelCommunities(preRegion, preDistrict);
+    } else {
+      await loadCommunities(preRegion, preDistrict, preSubDistrict);
+    }
+
     if (mounted && preCommunity.isNotEmpty) {
       if (!communities.contains(preCommunity)) {
         setState(() => communities = [...communities, preCommunity]);
@@ -237,6 +243,8 @@ class _CreateCaseScreenState extends State<CreateCaseScreen> {
     } catch (_) {}
   }
 
+  /// Load communities for a given (region, district, subDistrict)
+  /// If subDistrict is null -> backend returns both district-level and sub-district communities.
   Future<void> loadCommunities(String region, String district, String? subDistrict) async {
     try {
       final data = await ApiService.fetchCommunities(
@@ -249,6 +257,58 @@ class _CreateCaseScreenState extends State<CreateCaseScreen> {
         selectedCommunity = null;
       });
     } catch (_) {}
+  }
+
+  /// NEW: When a district is selected we want:
+  ///  - all sub-districts under that district (already loaded via loadSubDistricts)
+  ///  - communities DIRECTLY under the district (i.e. exclude communities that belong to sub-districts)
+  ///
+  /// Implementation: fetch the union of communities for the district, then fetch communities
+  /// for each sub-district and subtract them from the union. Falls back to the union if any step fails.
+  Future<void> _loadDistrictLevelCommunities(String region, String district) async {
+    try {
+      final all = await ApiService.fetchCommunities(region: region, district: district);
+      // if no sub-districts then just use the union (all belong to district directly)
+      if (subDistricts.isEmpty) {
+        setState(() {
+          communities = all;
+          selectedCommunity = null;
+        });
+        return;
+      }
+
+      // fetch communities for every sub-district in parallel
+      List<Future<List<String>>> futures = subDistricts.map((sd) {
+        return ApiService.fetchCommunities(region: region, district: district, subDistrict: sd);
+      }).toList();
+
+      List<List<String>> results;
+      try {
+        results = await Future.wait(futures);
+      } catch (_) {
+        // if any of the per-sub-district requests fail, fallback to union 'all'
+        setState(() {
+          communities = all;
+          selectedCommunity = null;
+        });
+        return;
+      }
+
+      final subSet = <String>{};
+      for (final list in results) {
+        subSet.addAll(list);
+      }
+
+      final districtOnly = all.where((c) => !subSet.contains(c)).toList();
+
+      setState(() {
+        communities = districtOnly;
+        selectedCommunity = null;
+      });
+    } catch (_) {
+      // final fallback: load whatever the backend returns for the district
+      await loadCommunities(region, district, null);
+    }
   }
 
   // ---------- validation helpers (call server endpoints) ----------
@@ -603,10 +663,10 @@ class _CreateCaseScreenState extends State<CreateCaseScreen> {
                     communities = [];
                   });
                   if (selectedRegion != null && val != null) {
-                    // load sub-districts and immediately also load all communities under the district
+                    // load sub-districts and then load district-only communities (exclude sub-district communities)
                     await loadSubDistricts(selectedRegion!, val);
                     if (!addingCommunity) {
-                      await loadCommunities(selectedRegion!, val, null);
+                      await _loadDistrictLevelCommunities(selectedRegion!, val);
                     }
                   }
                 },
@@ -668,15 +728,20 @@ class _CreateCaseScreenState extends State<CreateCaseScreen> {
                   addingCommunity = !addingCommunity;
                   if (addingCommunity == false) communityCtrl.clear();
                 });
-                // If switching to "Select existing", load communities for the current region/district/subDistrict
+                // If switching to "Select existing", load communities for the current region/district/subDistrict.
                 if (!addingCommunity &&
                     selectedRegion != null &&
                     selectedDistrict != null) {
-                  await loadCommunities(
-                    selectedRegion!,
-                    selectedDistrict!,
-                    selectedSubDistrict,
-                  );
+                  if (selectedSubDistrict != null && selectedSubDistrict!.isNotEmpty) {
+                    await loadCommunities(
+                      selectedRegion!,
+                      selectedDistrict!,
+                      selectedSubDistrict,
+                    );
+                  } else {
+                    // no sub-district selected -> load district-only communities
+                    await _loadDistrictLevelCommunities(selectedRegion!, selectedDistrict!);
+                  }
                 }
               },
               child: Text(addingCommunity ? "Select existing" : "Add new"),

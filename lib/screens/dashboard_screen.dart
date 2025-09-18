@@ -25,7 +25,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
   int _totalCases = 0;
   int _myCasesCount = 0;
-  int _myArchivedCount = 0; // <-- new
   int _confirmedCount = 0;
 
   // all case types returned by the backend (sorted descending by total)
@@ -119,26 +118,10 @@ class _DashboardScreenState extends State<DashboardScreen> {
     } catch (_) {
       myCount = 0;
     }
-
-    // New: fetch my archived count by hitting /cases/archived (backend returns only officer's archived if not admin)
-    int myArchived = 0;
-    try {
-      final archivedResp = await http.get(Uri.parse('$_base/cases/archived'), headers: {'Authorization': 'Bearer $token'});
-      if (archivedResp.statusCode == 200) {
-        final list = jsonDecode(archivedResp.body) as List<dynamic>;
-        myArchived = list.length;
-      } else {
-        myArchived = 0;
-      }
-    } catch (_) {
-      myArchived = 0;
-    }
-
     setState(() {
       _totalCases = allCases.length;
       _confirmedCount = confirmed;
       _myCasesCount = myCount;
-      _myArchivedCount = myArchived; // update state
     });
   }
 
@@ -205,62 +188,25 @@ class _DashboardScreenState extends State<DashboardScreen> {
       );
     }
 
-    // Custom card for "My cases" which also shows "My archived cases" count beside it.
+    // Custom card for "My cases" — archived badge removed per request.
     Widget myCasesCard() {
       return Expanded(
         child: Card(
           elevation: 2,
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-          child: Container(
-            padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 10),
-            child: Row(
-              children: [
-                // Main tappable area for "My cases"
-                Expanded(
-                  child: GestureDetector(
-                    onTap: () => setState(() => _selectedIndex = 1),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(_myCasesCount.toString(), style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-                        const SizedBox(height: 6),
-                        const Text('My cases', style: TextStyle(fontSize: 12, color: Colors.black87)),
-                      ],
-                    ),
-                  ),
-                ),
-
-                // Vertical divider
-                Container(width: 1, height: 36, color: Colors.grey.shade200, margin: const EdgeInsets.symmetric(horizontal: 8)),
-
-                // Archived badge/tile (small, tappable)
-                GestureDetector(
-                  onTap: () async {
-                    await Navigator.push(context, MaterialPageRoute(builder: (_) => const ArchivedCasesScreen()));
-                    _refreshAll();
-                  },
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
-                    decoration: BoxDecoration(
-                      color: Colors.teal.shade50,
-                      borderRadius: BorderRadius.circular(10),
-                    ),
-                    child: Column(
-                      children: [
-                        Text(
-                          _myArchivedCount.toString(),
-                          style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: Colors.teal),
-                        ),
-                        const SizedBox(height: 4),
-                        Text(
-                          'Archived',
-                          style: TextStyle(fontSize: 11, color: Colors.grey.shade800),
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-              ],
+          child: InkWell(
+            onTap: () => setState(() => _selectedIndex = 1),
+            borderRadius: BorderRadius.circular(12),
+            child: Container(
+              padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 12),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(_myCasesCount.toString(), style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+                  const SizedBox(height: 6),
+                  const Text('My cases', style: TextStyle(fontSize: 12, color: Colors.black87)),
+                ],
+              ),
             ),
           ),
         ),

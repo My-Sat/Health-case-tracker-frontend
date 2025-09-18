@@ -30,12 +30,10 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
 
   int _totalCases = 0;
   int _facilityCount = 0; // active facilities count
-  int _facilityArchivedCount = 0; // archived facilities count
   int _confirmedCount = 0;
 
   // case-type counts for action row
   int _caseTypeCount = 0;
-  int _caseTypeArchivedCount = 0;
 
   // all case types returned by the backend (sorted descending by total)
   List<CaseTypeShort> _caseTypes = [];
@@ -112,7 +110,6 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
 
     // Facility counts for admin:
     int facilityCount = 0;
-    int facilityArchived = 0;
     try {
       final resp = await http.get(Uri.parse('$_base/facilities'), headers: {'Authorization': 'Bearer $token'});
       if (resp.statusCode == 200) {
@@ -125,21 +122,8 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
       facilityCount = 0;
     }
 
-    try {
-      final resp = await http.get(Uri.parse('$_base/facilities/archived'), headers: {'Authorization': 'Bearer $token'});
-      if (resp.statusCode == 200) {
-        final List list = jsonDecode(resp.body) as List;
-        facilityArchived = list.length;
-      } else {
-        facilityArchived = 0;
-      }
-    } catch (_) {
-      facilityArchived = 0;
-    }
-
     // Case-type counts for action row (active & archived)
     int caseTypeCount = 0;
-    int caseTypeArchived = 0;
     try {
       final resp = await http.get(Uri.parse('$_base/casetypes'), headers: {'Authorization': 'Bearer $token'});
       if (resp.statusCode == 200) {
@@ -152,25 +136,12 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
       caseTypeCount = 0;
     }
 
-    try {
-      final resp = await http.get(Uri.parse('$_base/casetypes/archived'), headers: {'Authorization': 'Bearer $token'});
-      if (resp.statusCode == 200) {
-        final List list = jsonDecode(resp.body) as List;
-        caseTypeArchived = list.length;
-      } else {
-        caseTypeArchived = 0;
-      }
-    } catch (_) {
-      caseTypeArchived = 0;
-    }
 
     setState(() {
       _totalCases = allCases.length;
       _confirmedCount = confirmed;
       _facilityCount = facilityCount;
-      _facilityArchivedCount = facilityArchived;
       _caseTypeCount = caseTypeCount;
-      _caseTypeArchivedCount = caseTypeArchived;
     });
   }
 
@@ -273,51 +244,25 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
       );
     }
 
-    // Facility card with small archived badge on the right (tappable)
+    // Facility card - removed archived badge/display here per request.
     Widget facilityCard() {
       return Expanded(
         child: Card(
           elevation: 2,
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-          child: Container(
-            padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 10),
-            child: Row(
-              children: [
-                Expanded(
-                  child: GestureDetector(
-                    onTap: _openFacilities,
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(_facilityCount.toString(), style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-                        const SizedBox(height: 6),
-                        const Text('Facilities', style: TextStyle(fontSize: 12, color: Colors.black87)),
-                      ],
-                    ),
-                  ),
-                ),
-                Container(width: 1, height: 36, color: Colors.grey.shade200, margin: const EdgeInsets.symmetric(horizontal: 8)),
-                GestureDetector(
-                  onTap: _openArchivedFacilities,
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
-                    decoration: BoxDecoration(
-                      color: Colors.teal.shade50,
-                      borderRadius: BorderRadius.circular(10),
-                    ),
-                    child: Column(
-                      children: [
-                        Text(
-                          _facilityArchivedCount > 99 ? '99+' : _facilityArchivedCount.toString(),
-                          style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: Colors.teal),
-                        ),
-                        const SizedBox(height: 4),
-                        Text('Archived', style: TextStyle(fontSize: 11, color: Colors.grey.shade800)),
-                      ],
-                    ),
-                  ),
-                ),
-              ],
+          child: InkWell(
+            onTap: _openFacilities,
+            borderRadius: BorderRadius.circular(12),
+            child: Container(
+              padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 12),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(_facilityCount.toString(), style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+                  const SizedBox(height: 6),
+                  const Text('Facilities', style: TextStyle(fontSize: 12, color: Colors.black87)),
+                ],
+              ),
             ),
           ),
         ),
@@ -335,7 +280,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
     );
   }
 
-  // Updated: second small-card row for case-type actions — case-types card includes archived-badge at right, Add facility on the right
+  // Updated: second small-card row for case-type actions — case-types card no longer shows archived badge.
   Widget _buildCaseTypeActionsRow() {
     Widget actionCard({required String label, required VoidCallback? onTap, required IconData icon}) {
       return Expanded(
@@ -366,51 +311,25 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
       );
     }
 
-    // Case types card with archived badge on the right (compact, like facilityCard)
+    // Case types card - removed archived badge/display here per request.
     Widget caseTypesCard() {
       return Expanded(
         child: Card(
           elevation: 2,
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-          child: Container(
-            padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 10),
-            child: Row(
-              children: [
-                Expanded(
-                  child: GestureDetector(
-                    onTap: _openCaseTypesList,
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(_caseTypeCount.toString(), style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-                        const SizedBox(height: 6),
-                        const Text('Case types', style: TextStyle(fontSize: 12, color: Colors.black87)),
-                      ],
-                    ),
-                  ),
-                ),
-                Container(width: 1, height: 36, color: Colors.grey.shade200, margin: const EdgeInsets.symmetric(horizontal: 8)),
-                GestureDetector(
-                  onTap: _openArchivedCaseTypes,
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
-                    decoration: BoxDecoration(
-                      color: Colors.teal.shade50,
-                      borderRadius: BorderRadius.circular(10),
-                    ),
-                    child: Column(
-                      children: [
-                        Text(
-                          _caseTypeArchivedCount > 99 ? '99+' : _caseTypeArchivedCount.toString(),
-                          style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: Colors.teal),
-                        ),
-                        const SizedBox(height: 4),
-                        Text('Archived', style: TextStyle(fontSize: 11, color: Colors.grey.shade800)),
-                      ],
-                    ),
-                  ),
-                ),
-              ],
+          child: InkWell(
+            onTap: _openCaseTypesList,
+            borderRadius: BorderRadius.circular(12),
+            child: Container(
+              padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 12),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(_caseTypeCount.toString(), style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+                  const SizedBox(height: 6),
+                  const Text('Case types', style: TextStyle(fontSize: 12, color: Colors.black87)),
+                ],
+              ),
             ),
           ),
         ),
