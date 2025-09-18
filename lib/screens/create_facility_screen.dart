@@ -106,6 +106,62 @@ class _CreateFacilityScreenState extends State<CreateFacilityScreen> {
     } catch (_) {}
   }
 
+  /// NEW: When a district is selected we want:
+  ///  - load all sub-districts under that district (if any)
+  ///  - load communities directly under that district only (exclude communities belonging to any sub-district)
+  ///
+  /// Strategy:
+  /// 1. Fetch the union of communities for the district (subDistrict = null).
+  /// 2. If there are sub-districts, fetch communities for each sub-district and build a set.
+  /// 3. Subtract sub-district communities from the union to get district-only communities.
+  /// 4. Fallback to the union if any step fails.
+  Future<void> _loadDistrictLevelCommunities(String region, String district) async {
+    try {
+      // 1) union of all communities under the district (backend returns both district-level and sub-district communities)
+      final union = await ApiService.fetchCommunities(region: region, district: district, subDistrict: null);
+
+      // 2) if no sub-districts exist (fast path) just show union
+      if (subDistricts.isEmpty) {
+        setState(() {
+          communities = union;
+          selectedCommunity = null;
+        });
+        return;
+      }
+
+      // 3) fetch communities for each sub-district in parallel
+      final futures = subDistricts.map((sd) => ApiService.fetchCommunities(region: region, district: district, subDistrict: sd)).toList();
+
+      List<List<String>> results;
+      try {
+        results = await Future.wait(futures);
+      } catch (_) {
+        // if anything fails, fallback to union
+        setState(() {
+          communities = union;
+          selectedCommunity = null;
+        });
+        return;
+      }
+
+      final subSet = <String>{};
+      for (final list in results) {
+        subSet.addAll(list);
+      }
+
+      // district-only communities are those in union but not in any sub-district
+      final districtOnly = union.where((c) => !subSet.contains(c)).toList();
+
+      setState(() {
+        communities = districtOnly;
+        selectedCommunity = null;
+      });
+    } catch (_) {
+      // fallback: load whatever the backend returns for the district
+      await _loadCommunities(region: region, district: district, subDistrict: null);
+    }
+  }
+
   Future<void> createFacility() async {
     setState(() => isSubmitting = true);
     final token = Provider.of<AuthProvider>(context, listen: false).user!.token;
@@ -179,7 +235,10 @@ class _CreateFacilityScreenState extends State<CreateFacilityScreen> {
       ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Facility created')));
       Navigator.pop(context);
     } else {
-      final msg = jsonDecode(response.body)['message'] ?? 'Creation failed';
+      String msg = 'Creation failed';
+      try {
+        msg = jsonDecode(response.body)['message'] ?? msg;
+      } catch (_) {}
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(msg)));
     }
   }
@@ -294,6 +353,15 @@ class _CreateFacilityScreenState extends State<CreateFacilityScreen> {
                             selectedRegion = val;
                             if (val != null) {
                               await _loadDistricts(val);
+                            } else {
+                              setState(() {
+                                districts = [];
+                                subDistricts = [];
+                                communities = [];
+                                selectedDistrict = null;
+                                selectedSubDistrict = null;
+                                selectedCommunity = null;
+                              });
                             }
                           },
                         ),
@@ -321,17 +389,20 @@ class _CreateFacilityScreenState extends State<CreateFacilityScreen> {
                           options: districts,
                           onChanged: (val) async {
                             selectedDistrict = val;
+                            // reset dependent lists
+                            subDistricts = [];
+                            selectedSubDistrict = null;
+                            communities = [];
+                            selectedCommunity = null;
+                            setState(() {});
+
                             if (val != null && selectedRegion != null) {
-                              // 1) Clear & load sub-districts for the new district
+                              // 1) Load sub-districts
                               await _loadSubDistricts(selectedRegion!, val);
-                              // 2) Immediately load ALL communities under this district
-                              //    (no sub-district filter yet)
+
+                              // 2) Load district-only communities (exclude communities belonging to sub-districts)
                               if (!isAddingCommunity) {
-                                await _loadCommunities(
-                                  region: selectedRegion!,
-                                  district: val,
-                                  subDistrict: null,
-                                );
+                                await _loadDistrictLevelCommunities(selectedRegion!, val);
                               }
                             }
                           },
@@ -358,7 +429,11 @@ class _CreateFacilityScreenState extends State<CreateFacilityScreen> {
                           options: subDistricts,
                           onChanged: (val) async {
                             selectedSubDistrict = val;
+                            selectedCommunity = null;
+                            communities = [];
+                            setState(() {});
                             if (!isAddingCommunity && selectedRegion != null && selectedDistrict != null) {
+                              // When sub-district is selected, load communities only for that sub-district
                               await _loadCommunities(
                                 region: selectedRegion!,
                                 district: selectedDistrict!,
@@ -369,7 +444,7 @@ class _CreateFacilityScreenState extends State<CreateFacilityScreen> {
                         ),
                   const SizedBox(height: 16),
 
-                  // Community
+                  // Community (only show when region+district available)
                   if (((!isAddingRegion && selectedRegion != null) ||
                           (isAddingRegion && typedRegion.isNotEmpty)) &&
                       ((!isAddingDistrict && selectedDistrict != null) ||
@@ -387,11 +462,16 @@ class _CreateFacilityScreenState extends State<CreateFacilityScreen> {
                           if (!isAddingCommunity &&
                               selectedRegion != null &&
                               selectedDistrict != null) {
-                            await _loadCommunities(
-                              region: selectedRegion!,
-                              district: selectedDistrict!,
-                              subDistrict: selectedSubDistrict,
-                            );
+                            // If a sub-district is selected, load its communities; otherwise load district-only communities
+                            if (selectedSubDistrict != null && selectedSubDistrict!.isNotEmpty) {
+                              await _loadCommunities(
+                                region: selectedRegion!,
+                                district: selectedDistrict!,
+                                subDistrict: selectedSubDistrict,
+                              );
+                            } else {
+                              await _loadDistrictLevelCommunities(selectedRegion!, selectedDistrict!);
+                            }
                           }
                         },
                       ),
